@@ -1,9 +1,59 @@
-import { app, type BrowserWindow, ipcMain, session, webContents } from 'electron'
+import { app, type BrowserWindow, ipcMain, net, session, webContents } from 'electron'
+import type { BrowserMediaCommand, BrowserMediaInfo } from '../shared/types'
 import { basename, extname } from 'node:path'
 import { disguiseSession, disguiseWebContents } from './disguise'
 import { isAudioFile, newSoundFile, soundPath } from './library'
 
-const PAUSE_MEDIA_SCRIPT = `document.querySelectorAll('video, audio').forEach((m) => { if (!m.paused) m.pause() })`
+/**
+ * The page's main player: the one playing, else the first one that has loaded something.
+ * Muted media is ignored: autoplaying video ads always play muted and are not "what's playing".
+ */
+const FIND_MEDIA = `() => {
+  const audible = [...document.querySelectorAll('video, audio')].filter((m) => !m.muted && m.volume > 0)
+  return audible.find((m) => !m.paused && !m.ended) || audible.find((m) => m.duration > 0) || null
+}`
+
+/** Title/artist/thumbnail from the Media Session API (YouTube, SoundCloud… fill it in) plus position. */
+const MEDIA_INFO_SCRIPT = `(() => {
+  const m = (${FIND_MEDIA})()
+  if (!m) return null
+  const meta = navigator.mediaSession && navigator.mediaSession.metadata
+  const art = meta && meta.artwork && meta.artwork.length ? meta.artwork[meta.artwork.length - 1].src : null
+  return {
+    title: (meta && meta.title) || document.title,
+    artist: (meta && meta.artist) || location.hostname.replace(/^www\\./, ''),
+    artwork: art,
+    playing: !m.paused && !m.ended,
+    time: m.currentTime || 0,
+    duration: Number.isFinite(m.duration) ? m.duration : 0
+  }
+})()`
+
+const artworkCache = new Map<string, string | null>()
+
+/**
+ * Thumbnails come from the web (i.ytimg.com…); the app's page only allows local images, so the
+ * main process fetches them once and hands over a data: URL.
+ */
+async function artworkDataUrl(src: string): Promise<string | null> {
+  if (artworkCache.has(src)) return artworkCache.get(src)!
+  let result: string | null = null
+  try {
+    if (/^https:\/\//i.test(src)) {
+      const response = await net.fetch(src)
+      const type = response.headers.get('content-type') ?? ''
+      const bytes = Buffer.from(await response.arrayBuffer())
+      if (response.ok && /^image\//.test(type) && bytes.length < 2_000_000) result = `data:${type};base64,${bytes.toString('base64')}`
+    }
+  } catch {
+    result = null
+  }
+  if (artworkCache.size > 50) artworkCache.clear()
+  artworkCache.set(src, result)
+  return result
+}
+
+const PAUSE_MEDIA_SCRIPT =`document.querySelectorAll('video, audio').forEach((m) => { if (!m.paused) m.pause() })`
 
 const isMyInstants = (url: string): boolean => {
   try {
@@ -139,6 +189,26 @@ export function setupBrowser(getWindow: () => BrowserWindow | null): void {
         frame.executeJavaScript(PAUSE_MEDIA_SCRIPT).catch(() => undefined)
       }
     }
+  })
+
+  // Now-playing info (title, channel, thumbnail, position) for the bottom player, and its controls.
+  const guestOf = (host: Electron.WebContents): Electron.WebContents | undefined =>
+    webContents.getAllWebContents().find((c) => c.getType() === 'webview' && c.hostWebContents === host)
+  ipcMain.handle('browser:media-info', async (e): Promise<BrowserMediaInfo | null> => {
+    const guest = guestOf(e.sender)
+    if (!guest || guest.isDestroyed()) return null
+    const info = (await guest.executeJavaScript(MEDIA_INFO_SCRIPT).catch(() => null)) as BrowserMediaInfo | null
+    if (info?.artwork) info.artwork = await artworkDataUrl(info.artwork)
+    return info
+  })
+  ipcMain.handle('browser:media-control', (e, command: BrowserMediaCommand) => {
+    const guest = guestOf(e.sender)
+    if (!guest || guest.isDestroyed()) return
+    let body: string
+    if (command === 'toggle') body = 'if (m.paused) m.play(); else m.pause()'
+    else if (Number.isFinite(command.seek)) body = `m.currentTime = ${Number(command.seek)}`
+    else return
+    guest.executeJavaScript(`{ const m = (${FIND_MEDIA})(); if (m) { ${body} } }`).catch(() => undefined)
   })
 
   // The app window asks for getDisplayMedia() right after naming the webview to capture;

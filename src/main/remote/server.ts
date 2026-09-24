@@ -10,8 +10,9 @@ import pageHtml from './page.html?raw'
  * must carry the secret token from the QR code, so other people on the Wi-Fi can't use it.
  */
 
-/** Only these actions exist; they are the same ones the global hotkeys send. */
-const ACTION = /^(pad:[\w-]{1,64}|stopAll|toggleMic|toggleFx|deckToggle|deckNext)$/
+/** Only these actions exist: the global hotkeys' ones plus stopping one pad and the voice effects. */
+const ACTION =
+  /^((pad|stopPad):[\w-]{1,64}|stopAll|toggleMic|toggleFx|toggleMonitor|deckToggle|deckNext|fx:[a-z]{1,16}|fxSet:(pitch|echo|reverb):-?\d{1,3}(\.\d{1,3})?)$/
 
 export const newRemoteToken = (): string => randomBytes(18).toString('base64url')
 

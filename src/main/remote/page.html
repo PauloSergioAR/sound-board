@@ -54,7 +54,27 @@
   .ctl .sub { font-weight: 400; font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stop { min-height: 56px; border-radius: 14px; background: var(--red); color: var(--red-ink); font-weight: 800; font-size: 18px; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
   .stop:active, .ctl:active { filter: brightness(0.9); }
-  .denied { margin: auto; padding: 32px; text-align: center; color: var(--muted); }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 12px 16px 0; padding: 4px; border-radius: 12px; background: var(--panel); }
+  .tab { padding: 9px; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+  .tab[aria-selected="true"] { background: var(--line); color: var(--text); }
+  [hidden] { display: none !important; }
+  .pad-stop { position: absolute; top: 8px; right: 8px; padding: 5px 10px; border-radius: 999px; background: var(--red); color: var(--red-ink); font-size: 12px; font-weight: 800; }
+  .voice { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
+  .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .big { min-height: 64px; border-radius: 14px; background: var(--panel-2); font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); }
+  .big svg { width: 22px; height: 22px; }
+  .big.mic.on { background: var(--blue-soft); color: var(--blue); }
+  .big.mic.off { background: var(--red-soft); color: #f3b1ad; }
+  .big.monitor.on { background: #16261b; color: #c6ecd0; }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+  .presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .preset { min-height: 50px; border-radius: 12px; background: var(--panel-2); font-weight: 600; }
+  .preset[aria-pressed="true"] { background: var(--orange); color: var(--orange-ink); }
+  .knob { display: flex; flex-direction: column; gap: 8px; }
+  .knob-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; }
+  .knob-head b { color: var(--text); font-family: ui-monospace, monospace; }
+  input[type=range] { width: 100%; height: 32px; accent-color: var(--orange); }
+  .knobs[aria-disabled="true"] { opacity: 0.4; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -63,8 +83,33 @@
   <span class="brand">SoundBoard</span>
   <span class="status" id="status">Conectando…</span>
 </header>
-<nav class="chips" id="chips" aria-label="Categorias"></nav>
-<main><div class="grid" id="grid"></div></main>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="pads" aria-selected="true" type="button">Pads</button>
+  <button class="tab" role="tab" data-tab="voice" aria-selected="false" type="button">Voz</button>
+</div>
+<section id="tab-pads">
+  <nav class="chips" id="chips" aria-label="Categorias"></nav>
+  <main><div class="grid" id="grid"></div></main>
+</section>
+<section id="tab-voice" class="voice" hidden>
+  <div class="toggles">
+    <button class="big mic" id="v-mic" data-action="toggleMic" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      <span id="v-mic-label">Mic</span>
+    </button>
+    <button class="big monitor" id="v-monitor" data-action="toggleMonitor" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>
+      <span id="v-monitor-label">Me ouvir</span>
+    </button>
+  </div>
+  <span class="label">Efeito de voz</span>
+  <div class="presets" id="presets"></div>
+  <div class="knobs" id="knobs">
+    <label class="knob"><span class="knob-head">Tom <b id="pitch-value"></b></span><input type="range" id="pitch" data-param="pitch" min="-12" max="12" step="1"></label>
+    <label class="knob"><span class="knob-head">Eco <b id="echo-value"></b></span><input type="range" id="echo" data-param="echo" min="0" max="100" step="1"></label>
+    <label class="knob"><span class="knob-head">Reverb <b id="reverb-value"></b></span><input type="range" id="reverb" data-param="reverb" min="0" max="100" step="1"></label>
+  </div>
+</section>
 <footer>
   <button class="stop" data-action="stopAll" type="button">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
@@ -95,9 +140,11 @@
   const $ = (id) => document.getElementById(id)
   let state = null
   let category = null
+  /** Sliders being dragged are not overwritten by incoming state. */
+  const dragging = new Set()
 
-  const send = (action) => {
-    if (navigator.vibrate) navigator.vibrate(12)
+  const send = (action, haptic = true) => {
+    if (haptic && navigator.vibrate) navigator.vibrate(12)
     fetch('/action?t=' + encodeURIComponent(token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -106,19 +153,67 @@
   }
 
   document.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-tab]')
+    if (tab) {
+      document.querySelectorAll('[data-tab]').forEach((t) => t.setAttribute('aria-selected', String(t === tab)))
+      $('tab-pads').hidden = tab.dataset.tab !== 'pads'
+      $('tab-voice').hidden = tab.dataset.tab !== 'voice'
+      return
+    }
     const target = e.target.closest('[data-action]')
     if (target) send(target.dataset.action)
     const chip = e.target.closest('[data-category]')
     if (chip) { category = chip.dataset.category; render() }
   })
 
+  // Voice sliders: a few updates per second while dragging, and the final value on release.
+  const lastSent = {}
+  document.querySelectorAll('input[data-param]').forEach((input) => {
+    const param = input.dataset.param
+    const push = (force) => {
+      const now = Date.now()
+      if (!force && now - (lastSent[param] || 0) < 120) return
+      lastSent[param] = now
+      send('fxSet:' + param + ':' + input.value, false)
+    }
+    input.addEventListener('pointerdown', () => dragging.add(param))
+    input.addEventListener('input', () => { showKnob(param, Number(input.value)); push(false) })
+    input.addEventListener('change', () => { dragging.delete(param); push(true) })
+  })
+
+  function showKnob(param, value) {
+    $(param + '-value').textContent = param === 'pitch' ? (value > 0 ? '+' : '') + value + ' st' : value + '%'
+  }
+
+  function padElement(p, playing) {
+    const el = document.createElement('div')
+    el.className = 'pad ' + p.color + (playing ? ' playing' : '')
+    el.setAttribute('role', 'button')
+    el.tabIndex = 0
+    el.dataset.action = 'pad:' + p.id
+    const dot = document.createElement('span')
+    dot.className = 'dot'
+    const name = document.createElement('span')
+    name.className = 'name'
+    name.textContent = p.name
+    el.append(dot, name)
+    if (playing) {
+      const stop = document.createElement('span')
+      stop.className = 'pad-stop'
+      stop.setAttribute('role', 'button')
+      stop.dataset.action = 'stopPad:' + p.id
+      stop.textContent = '■ Parar'
+      el.append(stop)
+    }
+    return el
+  }
+
   function render() {
     if (!state) return
     const withPads = state.categories.filter((c) => state.pads.some((p) => p.categoryId === c.id))
     if (!state.categories.some((c) => c.id === category)) category = (withPads[0] || state.categories[0] || {}).id
 
-    const chips = $('chips')
-    chips.replaceChildren(...state.categories.map((c) => {
+    $('chips').replaceChildren(...state.categories.map((c) => {
       const b = document.createElement('button')
       b.type = 'button'
       b.className = 'chip'
@@ -130,32 +225,44 @@
 
     const playing = new Set(state.playing)
     const pads = state.pads.filter((p) => p.categoryId === category)
-    const grid = $('grid')
     if (!pads.length) {
       const empty = document.createElement('p')
       empty.className = 'empty'
       empty.textContent = 'Nenhum som nesta categoria.'
-      grid.replaceChildren(empty)
+      $('grid').replaceChildren(empty)
     } else {
-      grid.replaceChildren(...pads.map((p) => {
-        const b = document.createElement('button')
-        b.type = 'button'
-        b.className = 'pad ' + p.color + (playing.has(p.id) ? ' playing' : '')
-        b.dataset.action = 'pad:' + p.id
-        const dot = document.createElement('span')
-        dot.className = 'dot'
-        const name = document.createElement('span')
-        name.className = 'name'
-        name.textContent = p.name
-        b.append(dot, name)
-        return b
-      }))
+      $('grid').replaceChildren(...pads.map((p) => padElement(p, playing.has(p.id))))
     }
 
+    // Voice tab
+    const voice = state.voice
+    $('v-mic').className = 'big mic ' + (state.micEnabled ? 'on' : 'off')
+    $('v-mic-label').textContent = state.micEnabled ? 'Mic ligado' : 'Mic mudo'
+    $('v-monitor').className = 'big monitor' + (state.monitorVoice ? ' on' : '')
+    $('v-monitor-label').textContent = state.monitorVoice ? 'Me ouvindo' : 'Me ouvir'
+    const options = [{ id: 'off', name: 'Sem efeito' }].concat(state.presets)
+    $('presets').replaceChildren(...options.map((p) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'preset'
+      b.dataset.action = 'fx:' + p.id
+      b.setAttribute('aria-pressed', String(p.id === 'off' ? !voice.enabled : voice.enabled && voice.preset === p.id))
+      b.textContent = p.name
+      return b
+    }))
+    $('knobs').setAttribute('aria-disabled', String(!voice.enabled))
+    const values = { pitch: voice.pitch, echo: Math.round(voice.echo * 100), reverb: Math.round(voice.reverb * 100) }
+    for (const param of Object.keys(values)) {
+      if (dragging.has(param)) continue
+      $(param).value = values[param]
+      showKnob(param, values[param])
+    }
+
+    // Footer
     $('mic').className = 'ctl mic ' + (state.micEnabled ? 'on' : 'off')
     $('mic-label').textContent = state.micEnabled ? 'Mic ligado' : 'Mic mudo'
-    $('fx').className = 'ctl fx' + (state.fxEnabled ? ' on' : '')
-    $('fx-name').textContent = state.fxEnabled ? state.fxName : 'desligado'
+    $('fx').className = 'ctl fx' + (voice.enabled ? ' on' : '')
+    $('fx-name').textContent = voice.enabled ? (state.presets.find((p) => p.id === voice.preset) || {}).name || '' : 'desligado'
     $('music').className = 'ctl music' + (state.deck.playing ? ' on' : '')
     $('music-label').textContent = state.deck.playing ? 'Pausar' : 'Tocar'
     $('track').textContent = state.deck.track || ''

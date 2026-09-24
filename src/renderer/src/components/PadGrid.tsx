@@ -133,7 +133,7 @@ function PadCard({ pad, hotkeyFailed, onPlay, onEdit }: CardProps): React.JSX.El
       >
         <span className="pad-top">
           <span className="pad-dot" />
-          {pad.hotkey && (
+          {pad.hotkey && !playing && (
             <span className={hotkeyFailed ? 'kbd failed' : 'kbd'} title={hotkeyFailed ? 'Atalho em uso por outro programa' : undefined}>
               {formatAccelerator(pad.hotkey)}
             </span>
@@ -145,13 +145,9 @@ function PadCard({ pad, hotkeyFailed, onPlay, onEdit }: CardProps): React.JSX.El
       {playing && (
         <>
           <div ref={bar} className="pad-progress" />
-          <button
-            type="button"
-            className="pad-stop"
-            aria-label={`Parar ${pad.name}`}
-            onClick={() => engine.stopPad(pad.id)}
-          >
-            <StopIcon size={12} />
+          <button type="button" className="pad-stop" aria-label={`Parar ${pad.name}`} onClick={() => engine.stopPad(pad.id)}>
+            <StopIcon size={11} />
+            Parar
           </button>
         </>
       )}

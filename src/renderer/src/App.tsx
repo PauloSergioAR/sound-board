@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { BusId, HotkeyBinding, ImportedSound, Pad, RemoteInfo, Settings, Track } from '../../shared/types'
 import { engine } from './audio'
+import { browserMedia } from './audio/browserMedia'
 import { probeDuration } from './audio/deck'
-import { presetById, resolveParams } from './audio/presets'
+import { PRESETS, presetDefaults, resolveParams } from './audio/presets'
 import { type Clip, encodeWav } from './audio/wav'
 import { BrowserView } from './components/BrowserView'
 import { ClipEditor } from './components/ClipEditor'
-import { DeckBar } from './components/DeckBar'
+import { type NowPlayingSource, NowPlayingBar } from './components/NowPlayingBar'
 import { MusicView } from './components/MusicView'
 import { Header, type View } from './components/Header'
 import { Mixer } from './components/Mixer'
@@ -117,6 +118,14 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
 
   const deckState = useSyncExternalStore(engine.deck.subscribe, engine.deck.getState)
   const playingVersion = usePlayingVersion()
+
+  // The bottom player only shows while something plays (or right after pausing it from the bar,
+  // so it can be resumed). On the Música tab the deck already has its own player.
+  const browserPlaying = useSyncExternalStore(browserMedia.subscribe, browserMedia.isPlaying)
+  const [pausedHere, setPausedHere] = useState<NowPlayingSource | null>(null)
+  useEffect(() => setPausedHere(null), [view])
+  const barSource: NowPlayingSource | null = browserPlaying ? 'browser' : deckState.playing ? 'deck' : pausedHere
+  const showBar = barSource !== null && !(barSource === 'deck' && view === 'music')
   useEffect(() => {
     if (!remoteInfo?.running) return
     const track = playlists.flatMap((p) => p.tracks).find((t) => t.id === deckState.currentId)
@@ -125,11 +134,22 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
       pads: pads.map(({ id, name, categoryId, color }) => ({ id, name, categoryId, color })),
       playing: pads.filter((p) => engine.isPlaying(p.id)).map((p) => p.id),
       micEnabled: settings.micEnabled,
-      fxEnabled: settings.voiceFx.enabled,
-      fxName: presetById(settings.voiceFx.preset).name,
+      monitorVoice: settings.monitorVoice,
+      voice: settings.voiceFx,
+      presets: PRESETS.map(({ id, name }) => ({ id, name })),
       deck: { playing: deckState.playing, track: track?.name ?? null }
     })
-  }, [remoteInfo?.running, settings.categories, pads, settings.micEnabled, settings.voiceFx, deckState, playingVersion, playlists])
+  }, [
+    remoteInfo?.running,
+    settings.categories,
+    pads,
+    settings.micEnabled,
+    settings.monitorVoice,
+    settings.voiceFx,
+    deckState,
+    playingVersion,
+    playlists
+  ])
 
   // Fill in track durations in the background for the playlists.
   const probing = useRef(new Set<string>())
@@ -186,9 +206,24 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
         else if (action === 'toggleFx') update((x) => ({ ...x, voiceFx: { ...x.voiceFx, enabled: !x.voiceFx.enabled } }))
         else if (action === 'deckToggle') engine.deck.toggle()
         else if (action === 'deckNext') engine.deck.next()
+        else if (action === 'toggleMonitor') update((x) => ({ ...x, monitorVoice: !x.monitorVoice }))
         else if (action.startsWith('pad:')) {
           const pad = s.pads.find((p) => `pad:${p.id}` === action)
           if (pad) engine.play(pad, s.padMode)
+        } else if (action.startsWith('stopPad:')) engine.stopPad(action.slice('stopPad:'.length))
+        else if (action === 'fx:off') update((x) => ({ ...x, voiceFx: { ...x.voiceFx, enabled: false } }))
+        else if (action.startsWith('fx:')) {
+          const preset = PRESETS.find((p) => `fx:${p.id}` === action)
+          if (preset) update((x) => ({ ...x, voiceFx: { enabled: true, preset: preset.id, ...presetDefaults(preset.id) } }))
+        } else if (action.startsWith('fxSet:')) {
+          // From the phone's sliders: pitch in semitones, echo/reverb in percent.
+          const [, param, raw] = action.split(':')
+          const value = Number(raw)
+          const change =
+            param === 'pitch'
+              ? { pitch: Math.max(-12, Math.min(12, Math.round(value))) }
+              : { [param]: Math.max(0, Math.min(100, value)) / 100 }
+          update((x) => ({ ...x, voiceFx: { ...x.voiceFx, ...change } }))
         }
       }),
     [update]
@@ -290,6 +325,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
         outputIsCable={!!output && isCableInput(output)}
         remoteClients={remoteInfo?.running ? remoteInfo.clients : null}
         onRemote={() => setRemoteOpen(true)}
+        monitorVoice={settings.monitorVoice}
+        onMonitorVoice={(monitorVoice) => update((s) => ({ ...s, monitorVoice }))}
       />
 
       <div className="stage">
@@ -330,7 +367,6 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
             micEnabled={settings.micEnabled}
             onToggleMic={() => update((s) => ({ ...s, micEnabled: !s.micEnabled }))}
             monitorVoice={settings.monitorVoice}
-            onMonitorVoice={(monitorVoice) => update((s) => ({ ...s, monitorVoice }))}
             voiceFx={settings.voiceFx}
             onVoiceFx={(change) => update((s) => ({ ...s, voiceFx: { ...s.voiceFx, ...change } }))}
             pitchAvailable={pitchAvailable}
@@ -371,14 +407,19 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
       />
       </div>
 
-      <DeckBar
-        deck={settings.deck}
-        onChange={updateDeck}
-        onDropFiles={(files) => window.api.addMusic(files.map(window.api.pathForFile)).then((paths) => addMusic(paths))}
-        onOpenMusic={() => setView('music')}
-        toggleHotkey={settings.hotkeys.deckToggle}
-        nextHotkey={settings.hotkeys.deckNext}
-      />
+      {showBar && barSource && (
+        <NowPlayingBar
+          source={barSource}
+          deck={settings.deck}
+          onDeckChange={updateDeck}
+          musicVolume={mixer.music.volume}
+          onMusicVolume={(volume) => update((s) => ({ ...s, mixer: { ...s.mixer, music: { ...s.mixer.music, volume } } }))}
+          browserVolume={settings.browser.volume}
+          onBrowserVolume={(volume) => update((s) => ({ ...s, browser: { ...s.browser, volume } }))}
+          onPausedHere={setPausedHere}
+          onOpen={(source) => setView(source === 'deck' ? 'music' : 'browser')}
+        />
+      )}
 
       <Mixer
         mixer={mixer}

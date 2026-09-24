@@ -8,7 +8,6 @@ interface Props {
   micEnabled: boolean
   onToggleMic: () => void
   monitorVoice: boolean
-  onMonitorVoice: (enabled: boolean) => void
   voiceFx: VoiceFxSettings
   onVoiceFx: (change: Partial<VoiceFxSettings>) => void
   pitchAvailable: boolean
@@ -43,10 +42,6 @@ export function VoicePanel(props: Props): React.JSX.Element {
       <div className="meter">
         <div ref={meter} className="meter-fill voice" />
       </div>
-      <label className="check">
-        <input type="checkbox" checked={props.monitorVoice} onChange={(e) => props.onMonitorVoice(e.target.checked)} />
-        Me ouvir no fone
-      </label>
 
       <div className="fx-head">
         <span className="eyebrow" id="fx-label">
@@ -118,7 +113,7 @@ export function VoicePanel(props: Props): React.JSX.Element {
         </label>
       </fieldset>
       {!props.monitorVoice && voiceFx.enabled && (
-        <span className="muted small">Ligue "Me ouvir no fone" para ouvir o efeito na sua voz.</span>
+        <span className="muted small">Ligue "Me ouvir", no topo, para ouvir o efeito na sua voz.</span>
       )}
 
       {!props.pitchAvailable && (

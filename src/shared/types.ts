@@ -93,6 +93,19 @@ export interface BrowserSettings {
   lastUrl: string
 }
 
+/** What is playing in the embedded browser, for the bottom player. */
+export interface BrowserMediaInfo {
+  title: string
+  artist: string
+  /** data: URL of the thumbnail, when the page provides one. */
+  artwork: string | null
+  playing: boolean
+  time: number
+  duration: number
+}
+
+export type BrowserMediaCommand = 'toggle' | { seek: number }
+
 /** Control from a phone on the same network. */
 export interface RemoteSettings {
   enabled: boolean
@@ -107,8 +120,9 @@ export interface RemoteState {
   pads: Pick<Pad, 'id' | 'name' | 'categoryId' | 'color'>[]
   playing: string[]
   micEnabled: boolean
-  fxEnabled: boolean
-  fxName: string
+  monitorVoice: boolean
+  voice: VoiceFxSettings
+  presets: { id: VoicePresetId; name: string }[]
   deck: { playing: boolean; track: string | null }
 }
 

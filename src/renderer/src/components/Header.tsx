@@ -1,5 +1,5 @@
 import { useLevelRef } from '../hooks'
-import { LogoIcon, PhoneIcon } from './Icons'
+import { HeadphonesIcon, LogoIcon, PhoneIcon } from './Icons'
 
 export type View = 'pads' | 'music' | 'browser' | 'setup'
 
@@ -12,6 +12,8 @@ interface Props {
   /** Phones connected to the remote, or null when it is off. */
   remoteClients: number | null
   onRemote: () => void
+  monitorVoice: boolean
+  onMonitorVoice: (enabled: boolean) => void
 }
 
 const TABS: { id: View; label: string }[] = [
@@ -21,7 +23,8 @@ const TABS: { id: View; label: string }[] = [
   { id: 'setup', label: 'Dispositivos' }
 ]
 
-export function Header({ view, onView, outputLabel, outputIsCable, remoteClients, onRemote }: Props): React.JSX.Element {
+export function Header(props: Props): React.JSX.Element {
+  const { view, onView, outputLabel, outputIsCable, remoteClients, onRemote, monitorVoice, onMonitorVoice } = props
   const meter = useLevelRef<HTMLDivElement>('master')
 
   return (
@@ -46,6 +49,16 @@ export function Header({ view, onView, outputLabel, outputIsCable, remoteClients
         ))}
       </nav>
       <div className="spacer" />
+      <button
+        type="button"
+        className={monitorVoice ? 'remote-button on' : 'remote-button'}
+        aria-pressed={monitorVoice}
+        onClick={() => onMonitorVoice(!monitorVoice)}
+        title="Ouvir a própria voz (com efeito) no fone"
+      >
+        <HeadphonesIcon size={16} />
+        {monitorVoice ? 'Me ouvindo' : 'Me ouvir'}
+      </button>
       <button
         type="button"
         className={remoteClients === null ? 'remote-button' : 'remote-button on'}

@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  BrowserMediaCommand,
+  BrowserMediaInfo,
   HotkeyBinding,
   ImportedSound,
   RemoteInfo,
@@ -24,6 +26,9 @@ const api = {
     ipcRenderer.on('sounds:downloaded', listener)
     return () => ipcRenderer.removeListener('sounds:downloaded', listener)
   },
+  /** Title, thumbnail and position of what plays in the embedded browser (null if nothing). */
+  browserMediaInfo: (): Promise<BrowserMediaInfo | null> => ipcRenderer.invoke('browser:media-info'),
+  browserMediaControl: (command: BrowserMediaCommand): Promise<void> => ipcRenderer.invoke('browser:media-control', command),
   /** Pauses every video/audio playing in the embedded browser. */
   pauseBrowserMedia: (): Promise<void> => ipcRenderer.invoke('browser:pause-media'),
   /** Names the webview whose audio the next getDisplayMedia() call captures. */
