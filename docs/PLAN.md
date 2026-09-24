@@ -94,6 +94,16 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 | 4. Navegador | Webview com YouTube/MyInstants roteado para Música/Efeitos/só fone, "replay" dos últimos 30 s → recorte vira pad, downloads de áudio viram pad | ✅ |
 | 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), bloqueador de anúncios no navegador, perfis, modo mini sempre no topo, bandeja, instalador | |
 
+## Pendências antes de tornar o projeto público
+
+- **Login do Google no navegador embutido:** hoje o webview se passa por um Chrome comum (`main/disguise.ts`: UA
+  reduzido, marca "Google Chrome", headers `Sec-CH-UA`, `window.chrome`), porque o Google bloqueia login em
+  navegadores embutidos de propósito. Foi aceito para uso pessoal. Antes de distribuir, trocar por um caminho
+  oficial:
+  - OAuth no navegador do sistema + YouTube Data API + player IFrame oficial;
+  - um Chrome dedicado de verdade, capturado por WASAPI process loopback;
+  - a API de metadata de user agent do Electron (PR electron/electron#53519, ainda não aceito em set/2026).
+
 ## Cuidados práticos
 
 - **Discord:** desligar a supressão de ruído (Krisp), o cancelamento de eco e o ganho automático. Preferir detecção

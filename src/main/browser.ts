@@ -1,5 +1,6 @@
 import { app, type BrowserWindow, ipcMain, session, webContents } from 'electron'
 import { basename, extname } from 'node:path'
+import { disguiseSession, disguiseWebContents } from './disguise'
 import { isAudioFile, newSoundFile, soundPath } from './library'
 
 /** Cookies and logins of the embedded browser live here, apart from the app's own session. */
@@ -14,8 +15,8 @@ export const BROWSER_PARTITION = 'persist:browser'
  */
 export function setupBrowser(getWindow: () => BrowserWindow | null): void {
   const ses = session.fromPartition(BROWSER_PARTITION)
-  // Some sites (Google sign-in, YouTube) refuse browsers that announce themselves as Electron.
-  ses.setUserAgent(app.userAgentFallback.replace(/ Electron\/\S+/, '').replace(new RegExp(` ${app.getName()}/\\S+`), ''))
+  // Google sign-in refuses embedded browsers; present the webview as a regular Chrome (disguise.ts).
+  disguiseSession(ses)
   const allowed = new Set(['fullscreen', 'clipboard-sanitized-write'])
   ses.setPermissionRequestHandler((_wc, permission, callback) => callback(allowed.has(permission)))
   ses.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
@@ -41,6 +42,7 @@ export function setupBrowser(getWindow: () => BrowserWindow | null): void {
       if (params.partition !== BROWSER_PARTITION) event.preventDefault()
     })
     if (contents.getType() === 'webview') {
+      disguiseWebContents(contents)
       contents.setWindowOpenHandler(({ url }) => {
         if (/^https?:/i.test(url)) contents.loadURL(url)
         return { action: 'deny' }
