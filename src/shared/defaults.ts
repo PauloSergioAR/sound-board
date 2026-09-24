@@ -27,6 +27,7 @@ export function defaultSettings(): Settings {
       crossfade: 3,
       ducking: { enabled: true, amount: 12, threshold: -40 }
     },
+    browser: { route: 'music', volume: 0.8, lastUrl: 'https://www.youtube.com' },
     padMode: 'overlap',
     // Electron cannot bind the Pause key, so "stop everything" defaults to F11.
     hotkeys: { stopAll: 'F11', toggleMic: 'F10', toggleFx: 'F9', deckToggle: 'F7', deckNext: 'F8' }
@@ -48,6 +49,7 @@ export function withDefaults(partial: Partial<Settings> | null): Settings {
       ...partial.deck,
       ducking: { ...base.deck.ducking, ...partial.deck?.ducking }
     },
+    browser: { ...base.browser, ...partial.browser },
     hotkeys: { ...base.hotkeys, ...partial.hotkeys },
     categories: partial.categories?.length ? partial.categories : base.categories,
     pads: partial.pads ?? []

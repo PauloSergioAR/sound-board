@@ -74,6 +74,15 @@ export interface DeckSettings {
   ducking: DuckingSettings
 }
 
+/** Where the embedded browser's audio goes. */
+export type BrowserRoute = 'music' | 'sfx' | 'monitor'
+
+export interface BrowserSettings {
+  route: BrowserRoute
+  volume: number
+  lastUrl: string
+}
+
 export interface Settings {
   version: 1
   categories: Category[]
@@ -85,6 +94,7 @@ export interface Settings {
   monitorVoice: boolean
   voiceFx: VoiceFxSettings
   deck: DeckSettings
+  browser: BrowserSettings
   padMode: PadMode
   hotkeys: {
     stopAll: string

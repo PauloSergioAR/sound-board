@@ -1,8 +1,10 @@
-import type { BusId, DuckingSettings, Pad, PadMode } from '../../../shared/types'
+import type { BrowserRoute, BusId, DuckingSettings, Pad, PadMode } from '../../../shared/types'
 import { MusicDeck } from './deck'
 import duckerWorkletUrl from './ducker.worklet.ts?worker&url'
 import type { VoiceFxParams } from './presets'
+import replayWorkletUrl from './replay.worklet.ts?worker&url'
 import { VoiceFx } from './voiceFx'
+import type { Clip } from './wav'
 
 /**
  * The whole audio graph.
@@ -11,6 +13,8 @@ import { VoiceFx } from './voiceFx'
  *   pads ─────────────────────► sfx ────┤
  *   deck ─► musicIn ─► ducker ─► music ─┤
  *                 micGate ───┘ (sidechain)
+ *   browser tab ─► browserIn ─► browserGain ─► musicIn | sfx | monitor (chosen route)
+ *                        └► replay buffer (last 30 s, for clipping)
  *                                        └► monitor ─► [bridge] ─► monitor device (your headphones)
  *   voice ─► monitorVoice (0/1) ─► monitor
  *
@@ -67,6 +71,13 @@ export class AudioEngine {
       return false
     }
   )
+  private readonly browserIn = this.ctx.createGain()
+  private readonly browserGain = this.ctx.createGain()
+  private readonly browserAnalyser = this.ctx.createAnalyser()
+  private browserSource: { stream: MediaStream; node: MediaStreamAudioSourceNode } | null = null
+  private browserRoute: BrowserRoute = 'music'
+  private replay: AudioWorkletNode | null = null
+  private preview: AudioBufferSourceNode | null = null
   private readonly monitorVoice = this.ctx.createGain()
   private readonly limiter = this.ctx.createDynamicsCompressor()
   private readonly analysers = {} as Record<BusId, AnalyserNode>
@@ -112,6 +123,22 @@ export class AudioEngine {
     }
     this.micAnalyser.fftSize = this.levelBuffer.length
     this.micGate.connect(this.micAnalyser)
+
+    this.browserAnalyser.fftSize = this.levelBuffer.length
+    this.browserIn.connect(this.browserGain)
+    this.browserGain.connect(this.browserAnalyser)
+    this.setBrowserRoute(this.browserRoute)
+    this.ctx.audioWorklet.addModule(replayWorkletUrl).then(
+      () => {
+        this.replay = new AudioWorkletNode(this.ctx, 'replay-buffer', { outputChannelCount: [1] })
+        this.browserIn.connect(this.replay)
+        // A worklet only runs while something downstream pulls it; a silent path to the output does that.
+        const silent = this.ctx.createGain()
+        silent.gain.value = 0
+        this.replay.connect(silent).connect(this.ctx.destination)
+      },
+      (err) => console.error('Replay buffer failed to load', err)
+    )
     this.monitorVoice.gain.value = 0
   }
 
@@ -289,6 +316,69 @@ export class AudioEngine {
     if (!set?.size) return null
     const latest = [...set].reduce((a, b) => (b.startedAt > a.startedAt ? b : a))
     return Math.min(1, (this.ctx.currentTime - latest.startedAt) / latest.duration)
+  }
+
+  // ── Embedded browser ────────────────────────────────────
+
+  /** Takes over the browser tab's audio (a tab-capture stream); null releases it. */
+  setBrowserStream(stream: MediaStream | null): void {
+    if (this.browserSource) {
+      this.browserSource.node.disconnect()
+      this.browserSource.stream.getTracks().forEach((t) => t.stop())
+      this.browserSource = null
+    }
+    if (!stream) return
+    const node = this.ctx.createMediaStreamSource(stream)
+    node.connect(this.browserIn)
+    this.browserSource = { stream, node }
+  }
+
+  setBrowserRoute(route: BrowserRoute): void {
+    this.browserRoute = route
+    this.browserGain.disconnect()
+    this.browserGain.connect(this.browserAnalyser)
+    this.browserGain.connect(route === 'music' ? this.musicIn : route === 'sfx' ? this.buses.sfx : this.buses.monitor)
+  }
+
+  setBrowserVolume(volume: number): void {
+    this.ramp(this.browserGain.gain, volume)
+  }
+
+  /** Browser tab level, 0–1 on the same scale as the bus meters. */
+  browserLevel(): number {
+    const db = this.rmsDb(this.browserAnalyser)
+    return Math.min(1, Math.max(0, (db - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB))
+  }
+
+  /** The last 30 s of browser audio, oldest first. */
+  snapshotBrowser(): Promise<Clip | null> {
+    const replay = this.replay
+    if (!replay) return Promise.resolve(null)
+    return new Promise((resolve) => {
+      replay.port.onmessage = (e: MessageEvent<Clip>) => resolve(e.data)
+      replay.port.postMessage('snapshot')
+    })
+  }
+
+  /** Plays part of a clip on your headphones only, to check a cut before saving it. */
+  previewClip(clip: Clip, start: number, end: number): void {
+    this.stopPreview()
+    const buffer = this.ctx.createBuffer(2, clip.left.length, clip.sampleRate)
+    buffer.copyToChannel(clip.left as Float32Array<ArrayBuffer>, 0)
+    buffer.copyToChannel(clip.right as Float32Array<ArrayBuffer>, 1)
+    const source = this.ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(this.buses.monitor)
+    source.onended = () => {
+      if (this.preview === source) this.preview = null
+    }
+    source.start(0, start, Math.max(0.01, end - start))
+    this.preview = source
+  }
+
+  stopPreview(): void {
+    this.preview?.stop()
+    this.preview = null
   }
 
   /** Short 440 Hz beep to check the routing. */

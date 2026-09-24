@@ -59,6 +59,15 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 - Deck (`deck.ts`): dois `<audio>` se revezam para o crossfade. Os arquivos ficam no lugar original e são servidos
   pelo protocolo `sb-media://` (`main/media.ts`), com suporte a Range (seek) e CORS, porque o Web Audio exige
   CORS para ler mídia de outra origem. Só são servidos arquivos que você adicionou.
+- Navegador (`BrowserView.tsx`, `main/browser.ts`): um `<webview>` na partição `persist:browser`, sem node nem
+  preload, com user agent de Chrome. O áudio da página é capturado com `getDisplayMedia` e
+  `setDisplayMediaRequestHandler`, apontando para o frame do webview. O `suppressLocalAudioPlayback` desvia o áudio
+  em vez de duplicar, então ele só chega às caixas pelo nosso monitor. A captura por `chromeMediaSource: 'tab'` é
+  negada no Electron 44. O webview nunca fica `display:none` nem `visibility:hidden`, porque sem renderizar a captura
+  trava; fora da aba Navegador ele só fica atrás das outras telas.
+- Replay (`replay.worklet.ts`): um buffer circular guarda sempre os últimos 30 s do navegador. "Recortar" tira um
+  snapshot, você escolhe o trecho na onda e ele vira WAV em `sounds/`.
+- Downloads de áudio no webview (o botão de download do MyInstants, por exemplo) vão direto para `sounds/` e viram pad.
 - Ducking (`ducker.worklet.ts`): um AudioWorklet com duas entradas, a música e a voz depois do mute. Ele roda na
   thread de áudio, então funciona com a janela em segundo plano. Ataque de 40 ms, hold de 350 ms e release de
   600 ms.
@@ -82,8 +91,8 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 | 1. MVP | Mic → CABLE, grade de pads, categorias, importar/arrastar sons, editor de pad, dispositivos, monitor, mixer, atalhos globais, parar tudo | ✅ |
 | 2. Efeitos de voz | Presets (grave, fina, robô, rádio, megafone, caverna, eco longo), tom/eco/reverb em tempo real, F9 liga/desliga | ✅ |
 | 3. Deck de música | Fila de arquivos locais, play/pause/próxima, seek, crossfade, **ducking** (música abaixa quando você fala) com calibração | ✅ |
-| 4. Navegador | Webview com YouTube/MyInstants roteado para o canal Música, recortar trecho → pad, adicionar à fila | |
-| 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), perfis, modo mini sempre no topo, bandeja, instalador | |
+| 4. Navegador | Webview com YouTube/MyInstants roteado para Música/Efeitos/só fone, "replay" dos últimos 30 s → recorte vira pad, downloads de áudio viram pad | ✅ |
+| 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), bloqueador de anúncios no navegador, perfis, modo mini sempre no topo, bandeja, instalador | |
 
 ## Cuidados práticos
 

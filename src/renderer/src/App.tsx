@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BusId, HotkeyBinding, ImportedSound, Pad, Settings, Track } from '../../shared/types'
 import { engine } from './audio'
 import { probeDuration } from './audio/deck'
-import { DeckBar } from './components/DeckBar'
 import { resolveParams } from './audio/presets'
+import { type Clip, encodeWav } from './audio/wav'
+import { BrowserView } from './components/BrowserView'
+import { ClipEditor } from './components/ClipEditor'
+import { DeckBar } from './components/DeckBar'
 import { Header, type View } from './components/Header'
 import { Mixer } from './components/Mixer'
 import { PadEditor } from './components/PadEditor'
@@ -31,6 +34,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   const [micError, setMicError] = useState<string | null>(null)
   const [failedHotkeys, setFailedHotkeys] = useState<string[]>([])
   const [pitchAvailable, setPitchAvailable] = useState(true)
+  const [clip, setClip] = useState<Clip | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const { devices: dev, mixer, pads } = settings
 
   // ── Audio routing ──────────────────────────────────────
@@ -82,6 +87,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   useEffect(() => engine.deck.setQueue(settings.deck.queue), [settings.deck.queue])
   useEffect(() => engine.deck.setCrossfade(settings.deck.crossfade), [settings.deck.crossfade])
   useEffect(() => engine.setDucking(settings.deck.ducking), [settings.deck.ducking])
+  useEffect(() => engine.setBrowserRoute(settings.browser.route), [settings.browser.route])
+  useEffect(() => engine.setBrowserVolume(settings.browser.volume), [settings.browser.volume])
 
   // Fill in track durations in the background for the queue list.
   const probing = useRef(new Set<string>())
@@ -143,13 +150,13 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   // ── Library ────────────────────────────────────────────
 
   const addSounds = useCallback(
-    (sounds: ImportedSound[]) => {
+    (sounds: ImportedSound[], target = categoryId) => {
       if (!sounds.length) return
       const added: Pad[] = sounds.map((s) => ({
         id: newId(),
         name: s.name,
         file: s.file,
-        categoryId,
+        categoryId: target,
         volume: 1,
         color: 'orange'
       }))
@@ -157,6 +164,31 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
     },
     [categoryId, update]
   )
+
+  const showToast = useCallback((message: string) => {
+    setToast(message)
+    setTimeout(() => setToast((t) => (t === message ? null : t)), 3500)
+  }, [])
+
+  // Audio downloaded in the embedded browser (e.g. a MyInstants button) becomes a pad right away.
+  const addSoundsRef = useRef(addSounds)
+  addSoundsRef.current = addSounds
+  useEffect(
+    () =>
+      window.api.onSoundDownloaded((sound) => {
+        addSoundsRef.current([sound])
+        showToast(`"${sound.name}" virou pad`)
+      }),
+    [showToast]
+  )
+
+  const saveClip = async (name: string, target: string, start: number, end: number): Promise<void> => {
+    if (!clip) return
+    const sound = await window.api.saveSound(name, encodeWav(clip, start, end))
+    addSounds([sound], target)
+    setClip(null)
+    showToast(`"${name}" salvo em ${settings.categories.find((c) => c.id === target)?.name ?? 'pads'}`)
+  }
 
   const addMusic = (paths: string[]): void => {
     if (!paths.length) return
@@ -193,7 +225,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
         outputIsCable={!!output && isCableInput(output)}
       />
 
-      {view === 'pads' ? (
+      <div className="stage">
+      {view === 'pads' && (
         <div className="body">
           <Sidebar
             categories={settings.categories}
@@ -240,7 +273,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
             inputIsCable={!!input && isCableOutput(input)}
           />
         </div>
-      ) : (
+      )}
+      {view === 'setup' && (
         <SetupView
           settings={settings}
           devices={devices}
@@ -250,6 +284,13 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
           onDucking={(ducking) => update((s) => ({ ...s, deck: { ...s.deck, ducking } }))}
         />
       )}
+      <BrowserView
+        visible={view === 'browser'}
+        settings={settings.browser}
+        onChange={(change) => update((s) => ({ ...s, browser: { ...s.browser, ...change } }))}
+        onClip={setClip}
+      />
+      </div>
 
       <DeckBar
         deck={settings.deck}
@@ -279,6 +320,22 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
           onDelete={deletePad}
           onClose={() => setEditing(null)}
         />
+      )}
+
+      {clip && (
+        <ClipEditor
+          clip={clip}
+          categories={settings.categories}
+          defaultCategoryId={category.id}
+          onSave={saveClip}
+          onClose={() => setClip(null)}
+        />
+      )}
+
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
       )}
     </div>
   )

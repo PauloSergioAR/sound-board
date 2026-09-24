@@ -40,6 +40,12 @@ Na primeira vez, o Electron baixa o próprio binário.
 - **Música:** arraste arquivos para o deck (a barra acima do mixer) ou use **Fila → Adicionar**. Os arquivos tocam do
   lugar original, sem cópia. O **crossfade** mistura o fim de uma faixa com o começo da próxima, e o **ducking** abaixa
   a música enquanto você fala. Calibre a sensibilidade em Dispositivos → Ducking da música.
+- **Navegador:** a aba Navegador abre YouTube, MyInstants e qualquer site. O som da página entra no mixer, no canal
+  Música (com ducking), no canal Efeitos ou só no seu fone. Ele continua tocando quando você volta para os pads.
+  - **Recortar:** o app guarda sempre os últimos 30 s do navegador. Em "Recortar últimos 30 s", arraste sobre a onda
+    para escolher o trecho, ouça no fone e salve como pad.
+  - **Downloads:** arquivos de áudio baixados no navegador (o botão de download do MyInstants, por exemplo) viram pad
+    na categoria atual.
 - **Atalhos padrão:** `F7` toca/pausa a música, `F8` pula para a próxima, `F9` liga/desliga o efeito de voz, `F10`
   muta/desmuta o mic e `F11` para tudo (sons e música). Todos podem ser trocados em Dispositivos.
 

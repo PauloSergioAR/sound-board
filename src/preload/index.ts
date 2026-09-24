@@ -8,6 +8,17 @@ const api = {
   pickSounds: (): Promise<ImportedSound[]> => ipcRenderer.invoke('sounds:pick'),
   importSounds: (paths: string[]): Promise<ImportedSound[]> => ipcRenderer.invoke('sounds:import', paths),
   readSound: (file: string): Promise<Uint8Array> => ipcRenderer.invoke('sounds:read', file),
+  /** Saves audio made in the app (a browser clip) into the library. */
+  saveSound: (name: string, bytes: Uint8Array): Promise<ImportedSound> => ipcRenderer.invoke('sounds:save', name, bytes),
+  /** Audio files downloaded in the embedded browser land in the library; this reports each one. */
+  onSoundDownloaded: (callback: (sound: ImportedSound) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, sound: ImportedSound): void => callback(sound)
+    ipcRenderer.on('sounds:downloaded', listener)
+    return () => ipcRenderer.removeListener('sounds:downloaded', listener)
+  },
+  /** Names the webview whose audio the next getDisplayMedia() call captures. */
+  prepareBrowserCapture: (guestWebContentsId: number): Promise<boolean> =>
+    ipcRenderer.invoke('browser:prepare-capture', guestWebContentsId),
   deleteSound: (file: string): Promise<void> => ipcRenderer.invoke('sounds:delete', file),
   /** Opens a file dialog; returns the playable music paths chosen. */
   pickMusic: (): Promise<string[]> => ipcRenderer.invoke('music:pick'),

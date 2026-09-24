@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { AUDIO_EXTENSIONS } from '../shared/defaults'
 import type { HotkeyBinding, Settings } from '../shared/types'
 import { setHotkeys } from './hotkeys'
-import { deleteSound, importSounds, readSound } from './library'
+import { setupBrowser } from './browser'
+import { deleteSound, importSounds, readSound, saveSound } from './library'
 import { allowMedia, handleMediaProtocol, registerMediaScheme } from './media'
 import { loadSettings, saveSettings } from './settings'
 
@@ -27,7 +28,9 @@ function createWindow(): void {
       contextIsolation: true,
       sandbox: true,
       // Audio keeps flowing to the virtual mic while a game has focus.
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      // The embedded browser tab; locked down in browser.ts.
+      webviewTag: true
     }
   })
   mainWindow.on('closed', () => (mainWindow = null))
@@ -61,6 +64,7 @@ function registerIpc(): void {
   ipcMain.handle('sounds:import', (_e, paths: string[]) => importSounds(paths))
   ipcMain.handle('music:pick', async () => allowMedia(await pickAudioFiles('Adicionar músicas')))
   ipcMain.handle('music:add', (_e, paths: string[]) => allowMedia(paths))
+  ipcMain.handle('sounds:save', (_e, name: string, bytes: Uint8Array) => saveSound(name, bytes))
   ipcMain.handle('sounds:read', (_e, file: string) => readSound(file))
   ipcMain.handle('sounds:delete', (_e, file: string) => deleteSound(file))
 
@@ -78,6 +82,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
 
   handleMediaProtocol()
+  setupBrowser(() => mainWindow)
   registerIpc()
   createWindow()
   app.on('activate', () => {

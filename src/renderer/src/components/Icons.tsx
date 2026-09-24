@@ -116,6 +116,39 @@ export const MusicIcon = (p: IconProps): React.JSX.Element => (
   </Stroke>
 )
 
+export const BackIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M15 18l-6-6 6-6" />
+  </Stroke>
+)
+
+export const ForwardIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M9 18l6-6-6-6" />
+  </Stroke>
+)
+
+export const ReloadIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
+  </Stroke>
+)
+
+export const GlobeIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+  </Stroke>
+)
+
+export const ScissorsIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12" />
+  </Stroke>
+)
+
 export const ListIcon = (p: IconProps): React.JSX.Element => (
   <Stroke {...p}>
     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />

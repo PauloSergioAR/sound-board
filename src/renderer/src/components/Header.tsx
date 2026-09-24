@@ -1,7 +1,7 @@
 import { useLevelRef } from '../hooks'
 import { LogoIcon } from './Icons'
 
-export type View = 'pads' | 'setup'
+export type View = 'pads' | 'browser' | 'setup'
 
 interface Props {
   view: View
@@ -13,6 +13,7 @@ interface Props {
 
 const TABS: { id: View; label: string }[] = [
   { id: 'pads', label: 'Pads' },
+  { id: 'browser', label: 'Navegador' },
   { id: 'setup', label: 'Dispositivos' }
 ]
 
