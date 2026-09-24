@@ -16,6 +16,8 @@ const api = {
     ipcRenderer.on('sounds:downloaded', listener)
     return () => ipcRenderer.removeListener('sounds:downloaded', listener)
   },
+  /** Pauses every video/audio playing in the embedded browser. */
+  pauseBrowserMedia: (): Promise<void> => ipcRenderer.invoke('browser:pause-media'),
   /** Names the webview whose audio the next getDisplayMedia() call captures. */
   prepareBrowserCapture: (guestWebContentsId: number): Promise<boolean> =>
     ipcRenderer.invoke('browser:prepare-capture', guestWebContentsId),

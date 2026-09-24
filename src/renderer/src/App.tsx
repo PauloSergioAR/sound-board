@@ -19,6 +19,12 @@ import { useHotkeyCapture } from './hotkey'
 
 const newId = (): string => crypto.randomUUID()
 
+/** The panic button: pads, music and whatever plays in the embedded browser. */
+function stopEverything(): void {
+  engine.stopAll()
+  window.api.pauseBrowserMedia()
+}
+
 export function App(): React.JSX.Element {
   const [settings, update] = useSettings()
   if (!settings) return <div className="loading">Carregando…</div>
@@ -134,7 +140,7 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
     () =>
       window.api.onHotkey((action) => {
         const s = latest.current
-        if (action === 'stopAll') engine.stopAll()
+        if (action === 'stopAll') stopEverything()
         else if (action === 'toggleMic') update((x) => ({ ...x, micEnabled: !x.micEnabled }))
         else if (action === 'toggleFx') update((x) => ({ ...x, voiceFx: { ...x.voiceFx, enabled: !x.voiceFx.enabled } }))
         else if (action === 'deckToggle') engine.deck.toggle()
@@ -304,7 +310,7 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
       <Mixer
         mixer={mixer}
         onChange={(bus, value) => update((s) => ({ ...s, mixer: { ...s.mixer, [bus]: value } }))}
-        onStopAll={() => engine.stopAll()}
+        onStopAll={stopEverything}
         stopAllHotkey={settings.hotkeys.stopAll}
       />
 

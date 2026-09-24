@@ -3,6 +3,8 @@ import { basename, extname } from 'node:path'
 import { disguiseSession, disguiseWebContents } from './disguise'
 import { isAudioFile, newSoundFile, soundPath } from './library'
 
+const PAUSE_MEDIA_SCRIPT = `document.querySelectorAll('video, audio').forEach((m) => { if (!m.paused) m.pause() })`
+
 /** Cookies and logins of the embedded browser live here, apart from the app's own session. */
 export const BROWSER_PARTITION = 'persist:browser'
 
@@ -47,6 +49,17 @@ export function setupBrowser(getWindow: () => BrowserWindow | null): void {
         if (/^https?:/i.test(url)) contents.loadURL(url)
         return { action: 'deny' }
       })
+    }
+  })
+
+  // "Stop everything" pauses whatever plays in the app's own browser (YouTube, MyInstants…), in every
+  // frame, the same as pressing the player's pause button. Only webviews of this window are touched.
+  ipcMain.handle('browser:pause-media', (e) => {
+    for (const contents of webContents.getAllWebContents()) {
+      if (contents.getType() !== 'webview' || contents.hostWebContents !== e.sender) continue
+      for (const frame of contents.mainFrame.framesInSubtree) {
+        frame.executeJavaScript(PAUSE_MEDIA_SCRIPT).catch(() => undefined)
+      }
     }
   })
 
