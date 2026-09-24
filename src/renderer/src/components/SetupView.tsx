@@ -1,5 +1,5 @@
-import { useRef } from 'react'
-import type { DuckingSettings, Settings } from '../../../shared/types'
+import { useRef, useState } from 'react'
+import type { DuckingSettings, Settings, VbCableStep } from '../../../shared/types'
 import { engine } from '../audio'
 import { type AudioDevices, isAlias, isCableInput, isHandsFree, isVirtual, useAnimationFrame, useLevelRef } from '../hooks'
 import { HotkeyInput } from './HotkeyInput'
@@ -12,6 +12,70 @@ interface Props {
   onDevices: (devices: Partial<Settings['devices']>) => void
   onHotkeys: (hotkeys: Partial<Settings['hotkeys']>) => void
   onDucking: (ducking: DuckingSettings) => void
+}
+
+const VBCABLE_STEPS: Record<VbCableStep, string> = {
+  download: 'Baixando do site da VB-Audio…',
+  verify: 'Conferindo a assinatura digital…',
+  install: 'Instalando: confirme as janelas do Windows…'
+}
+
+/** First-run helper: installs the virtual cable the whole app depends on. */
+function VbCableCard({ onInstalled }: { onInstalled: () => void }): React.JSX.Element {
+  const [state, setState] = useState<{ step: VbCableStep | 'idle' | 'done'; error?: string }>({ step: 'idle' })
+  const busy = state.step !== 'idle' && state.step !== 'done'
+
+  const install = async (): Promise<void> => {
+    setState({ step: 'download' })
+    const result = await window.api.installVbCable((step) => setState({ step }))
+    if (result.ok) {
+      setState({ step: 'done' })
+      onInstalled()
+    } else {
+      setState({ step: 'idle', error: result.error })
+    }
+  }
+
+  return (
+    <section className="card vbcable" aria-label="Instalar VB-Cable">
+      <div className="card-head">
+        <h2>Falta o microfone virtual</h2>
+        <span className="status bad">
+          <AlertIcon size={14} />
+          VB-Cable não encontrado
+        </span>
+      </div>
+      <p className="muted small">
+        O SoundBoard entrega o áudio no <strong>VB-Cable</strong>, um driver gratuito (doação) da VB-Audio. O app baixa o
+        instalador oficial de vb-audio.com, confere a assinatura e instala. O Windows vai pedir permissão e confirmar a
+        instalação do driver.
+      </p>
+      {state.step === 'done' ? (
+        <p className="notice ok">
+          <CheckIcon size={16} />
+          <span>
+            VB-Cable instalado. Se o "CABLE Input" não aparecer na lista em alguns segundos, reinicie o PC.
+          </span>
+        </p>
+      ) : (
+        <div className="vbcable-actions">
+          <button type="button" className="button primary" onClick={install} disabled={busy}>
+            {busy ? <span className="spinner dark" aria-hidden="true" /> : null}
+            {busy ? VBCABLE_STEPS[state.step as VbCableStep] : 'Instalar VB-Cable'}
+          </button>
+          <button type="button" className="button ghost" onClick={() => window.api.openVbCablePage()}>
+            Site da VB-Audio / doar
+          </button>
+        </div>
+      )}
+      {state.error && (
+        <p className="notice danger">
+          <AlertIcon size={16} />
+          <span>{state.error}</span>
+        </p>
+      )}
+    </section>
+  )
 }
 
 const CALIBRATION_FLOOR = -70
@@ -104,6 +168,8 @@ export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotke
             O SoundBoard mistura tudo e entrega no microfone virtual. Discord e Wardogs escutam o CABLE Output.
           </p>
         </div>
+
+        {!cable && <VbCableCard onInstalled={devices.refresh} />}
 
         <section className="card" aria-label="Fluxo de áudio">
           <div className="flow">

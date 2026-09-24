@@ -1,14 +1,17 @@
 {
   "name": "soundboard",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Soundboard que toca sons, música e efeitos de voz direto no microfone (Discord, Wardogs) via VB-Cable.",
+  "author": "Paulo Sergio",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "assets": "node scripts/make-assets.mjs",
+    "dist": "electron-vite build && node scripts/dist.mjs"
   },
   "repository": {
     "type": "git",
@@ -17,15 +20,20 @@
   "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
+    "@electron/packager": "^20.3.0",
     "@fontsource/bricolage-grotesque": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^24.13.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^44.4.5",
     "electron-vite": "^5.0.0",
+    "electron-winstaller": "^5.4.4",
+    "gifenc": "^1.0.3",
+    "png-to-ico": "^3.0.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "typescript": "^5.9.3",

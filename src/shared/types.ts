@@ -105,6 +105,9 @@ export interface Settings {
   }
 }
 
+/** Progress of the VB-Cable installation. */
+export type VbCableStep = 'download' | 'verify' | 'install'
+
 export interface ImportedSound {
   file: string
   name: string

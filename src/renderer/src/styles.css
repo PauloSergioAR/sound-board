@@ -1391,6 +1391,30 @@ h2 {
   background: var(--line);
 }
 
+.card.vbcable {
+  border-color: var(--orange-line);
+}
+.card.vbcable p {
+  margin: 0;
+  line-height: 1.5;
+}
+.vbcable-actions {
+  display: flex;
+  gap: 8px;
+}
+.spinner.dark {
+  border-color: rgb(26 19 7 / 0.3);
+  border-top-color: var(--orange-ink);
+}
+.notice.ok {
+  background: #16261b;
+  border: 1px solid #2c5a37;
+  color: #c6ecd0;
+}
+.notice.ok svg {
+  color: var(--green);
+}
+
 .monitor-row {
   display: flex;
   align-items: flex-end;

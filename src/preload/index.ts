@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { HotkeyBinding, ImportedSound, Settings } from '../shared/types'
+import type { HotkeyBinding, ImportedSound, Settings, VbCableStep } from '../shared/types'
 
 const api = {
   loadSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:load'),
@@ -26,6 +26,18 @@ const api = {
   addMusic: (paths: string[]): Promise<string[]> => ipcRenderer.invoke('music:add', paths),
   /** Full path of a file dropped onto the window. */
   pathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  /** Downloads, verifies and installs VB-Cable; `onStep` reports progress. */
+  installVbCable: async (onStep: (step: VbCableStep) => void): Promise<{ ok: boolean; error?: string }> => {
+    const listener = (_e: Electron.IpcRendererEvent, step: VbCableStep): void => onStep(step)
+    ipcRenderer.on('vbcable:step', listener)
+    try {
+      return await ipcRenderer.invoke('vbcable:install')
+    } finally {
+      ipcRenderer.removeListener('vbcable:step', listener)
+    }
+  },
+  openVbCablePage: (): Promise<void> => ipcRenderer.invoke('vbcable:open-page'),
 
   /** Returns the accelerators that failed to register. */
   setHotkeys: (bindings: HotkeyBinding[]): Promise<string[]> => ipcRenderer.invoke('hotkeys:set', bindings),

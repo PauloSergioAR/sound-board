@@ -11,6 +11,23 @@ Plano completo e roadmap: [docs/PLAN.md](docs/PLAN.md).
 - [Node.js](https://nodejs.org) 22.12+
 - [VB-Audio Virtual Cable](https://vb-audio.com/Cable/) (instale e reinicie o PC)
 
+## Instalador
+
+```bash
+npm run dist
+```
+
+Isso gera `dist/installer/SoundBoardSetup.exe`, um instalador no estilo do Discord (Squirrel.Windows):
+- mostra só uma animação enquanto instala, sem assistente e sem pedir administrador;
+- instala em `%LocalAppData%\SoundBoard`, cria atalhos na área de trabalho e no menu Iniciar e abre o app no fim;
+- aparece em "Apps instalados" para desinstalar. As configurações e os sons em `%APPDATA%\soundboard` são mantidos.
+
+O **VB-Cable** não vai dentro do instalador, porque redistribuí-lo exige licença da VB-Audio. Quando ele falta, a tela
+Dispositivos mostra **Instalar VB-Cable**: o app baixa o pacote oficial de vb-audio.com, confere a assinatura digital
+(Vincent Burel) e instala com uma permissão do Windows. O VB-Cable é doação: considere apoiar a VB-Audio.
+
+O ícone e a animação do instalador saem do logo, via `npm run assets` (geram `build/`).
+
 ## Rodando
 
 ```bash

@@ -92,7 +92,7 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 | 2. Efeitos de voz | Presets (grave, fina, robô, rádio, megafone, caverna, eco longo), tom/eco/reverb em tempo real, F9 liga/desliga | ✅ |
 | 3. Deck de música | Fila de arquivos locais, play/pause/próxima, seek, crossfade, **ducking** (música abaixa quando você fala) com calibração | ✅ |
 | 4. Navegador | Webview com YouTube/MyInstants roteado para Música/Efeitos/só fone, "replay" dos últimos 30 s → recorte vira pad, downloads de áudio viram pad | ✅ |
-| 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), bloqueador de anúncios no navegador, perfis, modo mini sempre no topo, bandeja, instalador | |
+| 5. Extras | ✅ Instalador (Squirrel, estilo Discord) + instalação guiada do VB-Cable. Falta: capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), bloqueador de anúncios, perfis, modo mini sempre no topo, bandeja, auto-update | parcial |
 
 ## Pendências antes de tornar o projeto público
 

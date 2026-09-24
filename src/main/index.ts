@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, session } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, session, shell } from 'electron'
 import { join } from 'node:path'
 import { AUDIO_EXTENSIONS } from '../shared/defaults'
 import type { HotkeyBinding, Settings } from '../shared/types'
@@ -7,6 +7,8 @@ import { setupBrowser } from './browser'
 import { deleteSound, importSounds, readSound, saveSound } from './library'
 import { allowMedia, handleMediaProtocol, registerMediaScheme } from './media'
 import { loadSettings, saveSettings } from './settings'
+import { handleSquirrelEvent } from './squirrel'
+import { installVbCable, VBCABLE_PAGE } from './vbcable'
 
 // Sounds must play from global hotkeys without a click inside the window first.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
@@ -71,26 +73,52 @@ function registerIpc(): void {
   ipcMain.handle('hotkeys:set', (_e, bindings: HotkeyBinding[]) =>
     setHotkeys(bindings, (action) => mainWindow?.webContents.send('hotkey', action))
   )
+
+  ipcMain.handle('vbcable:install', async (e) => {
+    try {
+      await installVbCable((step) => e.sender.send('vbcable:step', step))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: (err as Error).message }
+    }
+  })
+  // Only VB-Audio's page (to donate or download by hand) may be opened in the system browser.
+  ipcMain.handle('vbcable:open-page', () => shell.openExternal(VBCABLE_PAGE))
 }
 
-app.whenReady().then(() => {
-  // Only the microphone and output-device selection are ever needed.
-  const allowed = new Set(['media', 'speaker-selection'])
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) =>
-    callback(allowed.has(permission))
-  )
-  session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
-
-  handleMediaProtocol()
-  setupBrowser(() => mainWindow)
-  registerIpc()
-  createWindow()
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+function start(): void {
+  // A second copy would fight over the global shortcuts and the virtual cable: focus this one instead.
+  app.on('second-instance', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
   })
-})
 
-app.on('will-quit', () => globalShortcut.unregisterAll())
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+  app.whenReady().then(() => {
+    // Only the microphone and output-device selection are ever needed.
+    const allowed = new Set(['media', 'speaker-selection'])
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) =>
+      callback(allowed.has(permission))
+    )
+    session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
+
+    handleMediaProtocol()
+    setupBrowser(() => mainWindow)
+    registerIpc()
+    createWindow()
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+
+  app.on('will-quit', () => globalShortcut.unregisterAll())
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit()
+  })
+}
+
+// Installer events quit on their own once the shortcuts are handled.
+if (!handleSquirrelEvent()) {
+  if (app.requestSingleInstanceLock()) start()
+  else app.quit()
+}
