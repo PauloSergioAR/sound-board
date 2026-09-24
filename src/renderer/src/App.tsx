@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BusId, HotkeyBinding, ImportedSound, Pad, Settings } from '../../shared/types'
+import type { BusId, HotkeyBinding, ImportedSound, Pad, Settings, Track } from '../../shared/types'
 import { engine } from './audio'
+import { probeDuration } from './audio/deck'
+import { DeckBar } from './components/DeckBar'
 import { resolveParams } from './audio/presets'
 import { Header, type View } from './components/Header'
 import { Mixer } from './components/Mixer'
@@ -77,6 +79,24 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   useEffect(() => engine.setMicEnabled(settings.micEnabled), [settings.micEnabled])
   useEffect(() => engine.setMonitorVoice(settings.monitorVoice), [settings.monitorVoice])
   useEffect(() => engine.setVoiceFx(resolveParams(settings.voiceFx)), [settings.voiceFx])
+  useEffect(() => engine.deck.setQueue(settings.deck.queue), [settings.deck.queue])
+  useEffect(() => engine.deck.setCrossfade(settings.deck.crossfade), [settings.deck.crossfade])
+  useEffect(() => engine.setDucking(settings.deck.ducking), [settings.deck.ducking])
+
+  // Fill in track durations in the background for the queue list.
+  const probing = useRef(new Set<string>())
+  useEffect(() => {
+    for (const track of settings.deck.queue) {
+      if (track.duration !== undefined || probing.current.has(track.id)) continue
+      probing.current.add(track.id)
+      probeDuration(track.path).then((duration) =>
+        update((s) => ({
+          ...s,
+          deck: { ...s.deck, queue: s.deck.queue.map((t) => (t.id === track.id ? { ...t, duration: duration ?? 0 } : t)) }
+        }))
+      )
+    }
+  }, [settings.deck.queue, update])
   useEffect(() => {
     engine.pitchReady.then(setPitchAvailable)
   }, [])
@@ -89,6 +109,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
       { accelerator: settings.hotkeys.stopAll, action: 'stopAll' },
       { accelerator: settings.hotkeys.toggleMic, action: 'toggleMic' },
       { accelerator: settings.hotkeys.toggleFx, action: 'toggleFx' },
+      { accelerator: settings.hotkeys.deckToggle, action: 'deckToggle' },
+      { accelerator: settings.hotkeys.deckNext, action: 'deckNext' },
       ...pads.filter((p) => p.hotkey).map((p) => ({ accelerator: p.hotkey!, action: `pad:${p.id}` }))
     ],
     [settings.hotkeys, pads]
@@ -108,6 +130,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
         if (action === 'stopAll') engine.stopAll()
         else if (action === 'toggleMic') update((x) => ({ ...x, micEnabled: !x.micEnabled }))
         else if (action === 'toggleFx') update((x) => ({ ...x, voiceFx: { ...x.voiceFx, enabled: !x.voiceFx.enabled } }))
+        else if (action === 'deckToggle') engine.deck.toggle()
+        else if (action === 'deckNext') engine.deck.next()
         else if (action.startsWith('pad:')) {
           const pad = s.pads.find((p) => `pad:${p.id}` === action)
           if (pad) engine.play(pad, s.padMode)
@@ -133,6 +157,16 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
     },
     [categoryId, update]
   )
+
+  const addMusic = (paths: string[]): void => {
+    if (!paths.length) return
+    const tracks: Track[] = paths.map((path) => ({
+      id: newId(),
+      path,
+      name: path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '')
+    }))
+    update((s) => ({ ...s, deck: { ...s.deck, queue: [...s.deck.queue, ...tracks] } }))
+  }
 
   const deletePad = (pad: Pad): void => {
     engine.stopPad(pad.id)
@@ -213,8 +247,18 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
           failedHotkeys={failedHotkeys}
           onDevices={(d) => update((s) => ({ ...s, devices: { ...s.devices, ...d } }))}
           onHotkeys={(h) => update((s) => ({ ...s, hotkeys: { ...s.hotkeys, ...h } }))}
+          onDucking={(ducking) => update((s) => ({ ...s, deck: { ...s.deck, ducking } }))}
         />
       )}
+
+      <DeckBar
+        deck={settings.deck}
+        onChange={(change) => update((s) => ({ ...s, deck: { ...s.deck, ...change } }))}
+        onAddClick={() => window.api.pickMusic().then(addMusic)}
+        onDropFiles={(files) => window.api.addMusic(files.map(window.api.pathForFile)).then(addMusic)}
+        toggleHotkey={settings.hotkeys.deckToggle}
+        nextHotkey={settings.hotkeys.deckNext}
+      />
 
       <Mixer
         mixer={mixer}

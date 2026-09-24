@@ -37,8 +37,11 @@ Na primeira vez, o Electron baixa o próprio binário.
 - **Clique** num pad para tocar; **clique direito** para editar nome, atalho global, volume, cor e categoria.
 - **Efeitos de voz:** no painel "Sua voz", escolha um preset (Grave, Fina, Robô, Rádio, Megafone, Caverna, Eco longo) e
   ajuste tom, eco e reverb. Marque "Me ouvir no fone" para ouvir o resultado.
-- **Atalhos padrão:** `F9` liga/desliga o efeito de voz, `F10` muta/desmuta o mic e `F11` para tudo. Todos podem ser
-  trocados em Dispositivos.
+- **Música:** arraste arquivos para o deck (a barra acima do mixer) ou use **Fila → Adicionar**. Os arquivos tocam do
+  lugar original, sem cópia. O **crossfade** mistura o fim de uma faixa com o começo da próxima, e o **ducking** abaixa
+  a música enquanto você fala. Calibre a sensibilidade em Dispositivos → Ducking da música.
+- **Atalhos padrão:** `F7` toca/pausa a música, `F8` pula para a próxima, `F9` liga/desliga o efeito de voz, `F10`
+  muta/desmuta o mic e `F11` para tudo (sons e música). Todos podem ser trocados em Dispositivos.
 
 ## Scripts
 

@@ -88,3 +88,36 @@ export const PlayIcon = ({ size = 18 }: IconProps): React.JSX.Element => (
     <path d="M7 4l13 8-13 8z" />
   </svg>
 )
+
+export const PauseIcon = ({ size = 18 }: IconProps): React.JSX.Element => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <rect x="6" y="4" width="4" height="16" />
+    <rect x="14" y="4" width="4" height="16" />
+  </svg>
+)
+
+export const PrevIcon = ({ size = 18 }: IconProps): React.JSX.Element => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M18 5l-9 7 9 7zM5 5h2v14H5z" />
+  </svg>
+)
+
+export const NextIcon = ({ size = 18 }: IconProps): React.JSX.Element => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M6 5l9 7-9 7zM17 5h2v14h-2z" />
+  </svg>
+)
+
+export const MusicIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M9 18V5l12-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="18" cy="16" r="3" />
+  </Stroke>
+)
+
+export const ListIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+  </Stroke>
+)

@@ -3,7 +3,7 @@ export type PadColor = 'orange' | 'blue' | 'violet'
 /** What happens to sounds already playing when a pad is triggered. */
 export type PadMode = 'overlap' | 'restart' | 'exclusive'
 
-export type BusId = 'voice' | 'sfx' | 'master' | 'monitor'
+export type BusId = 'voice' | 'sfx' | 'music' | 'master' | 'monitor'
 
 export interface Category {
   id: string
@@ -50,6 +50,30 @@ export interface VoiceFxSettings {
   reverb: number
 }
 
+export interface Track {
+  id: string
+  /** Absolute path of the original file (music is streamed, not copied). */
+  path: string
+  name: string
+  /** Seconds, once known. */
+  duration?: number
+}
+
+export interface DuckingSettings {
+  enabled: boolean
+  /** How much the music drops while you talk, in dB (positive). */
+  amount: number
+  /** Voice level that counts as talking, in dBFS. */
+  threshold: number
+}
+
+export interface DeckSettings {
+  queue: Track[]
+  /** Crossfade between tracks, in seconds; 0 = cut. */
+  crossfade: number
+  ducking: DuckingSettings
+}
+
 export interface Settings {
   version: 1
   categories: Category[]
@@ -60,11 +84,14 @@ export interface Settings {
   /** Also send your own voice to the monitor (headphones). */
   monitorVoice: boolean
   voiceFx: VoiceFxSettings
+  deck: DeckSettings
   padMode: PadMode
   hotkeys: {
     stopAll: string
     toggleMic: string
     toggleFx: string
+    deckToggle: string
+    deckNext: string
   }
 }
 

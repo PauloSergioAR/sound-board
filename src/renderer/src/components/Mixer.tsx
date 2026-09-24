@@ -13,6 +13,7 @@ interface Props {
 const STRIPS: { id: BusId; label: string; hint: string }[] = [
   { id: 'voice', label: 'Voz', hint: 'Seu microfone' },
   { id: 'sfx', label: 'Efeitos', hint: 'Pads' },
+  { id: 'music', label: 'Música', hint: 'Deck' },
   { id: 'master', label: 'Master', hint: 'O que sai no CABLE' },
   { id: 'monitor', label: 'Monitor', hint: 'Seu fone' }
 ]

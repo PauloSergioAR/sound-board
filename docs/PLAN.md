@@ -50,10 +50,18 @@ Grafo do motor (`engine.ts`):
 
 ```
 mic ─► micGate ─► voiceFx ─► voice ─┬──────────► master ─► limiter ─► CABLE Input
-pads ─────────────────────► sfx ────┼──────────►
-                                     └► monitor ─► [MediaStream] ─► seu fone
+pads ─────────────────────► sfx ────┤
+deck ─► ducker ───────────► music ──┤
+         ▲ micGate (sidechain)       └► monitor ─► [MediaStream] ─► seu fone
 voice ─► monitorVoice (liga/desliga) ─► monitor
 ```
+
+- Deck (`deck.ts`): dois `<audio>` se revezam para o crossfade. Os arquivos ficam no lugar original e são servidos
+  pelo protocolo `sb-media://` (`main/media.ts`), com suporte a Range (seek) e CORS, porque o Web Audio exige
+  CORS para ler mídia de outra origem. Só são servidos arquivos que você adicionou.
+- Ducking (`ducker.worklet.ts`): um AudioWorklet com duas entradas, a música e a voz depois do mute. Ele roda na
+  thread de áudio, então funciona com a janela em segundo plano. Ataque de 40 ms, hold de 350 ms e release de
+  600 ms.
 
 - O processamento de voz do navegador (eco, ruído, AGC) fica desligado, porque ele corta música e efeitos.
 - Efeitos de voz (`voiceFx.ts`): tom → modulador em anel (robô) → passa-altas/passa-baixas → distorção →
@@ -73,7 +81,7 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 | 0. Validação | VB-Cable instalado, Discord/Wardogs com CABLE Output como microfone | ✅ driver instalado |
 | 1. MVP | Mic → CABLE, grade de pads, categorias, importar/arrastar sons, editor de pad, dispositivos, monitor, mixer, atalhos globais, parar tudo | ✅ |
 | 2. Efeitos de voz | Presets (grave, fina, robô, rádio, megafone, caverna, eco longo), tom/eco/reverb em tempo real, F9 liga/desliga | ✅ |
-| 3. Deck de música | Fila de arquivos locais, play/pause/próxima, crossfade, **ducking** (música abaixa quando você fala) | |
+| 3. Deck de música | Fila de arquivos locais, play/pause/próxima, seek, crossfade, **ducking** (música abaixa quando você fala) com calibração | ✅ |
 | 4. Navegador | Webview com YouTube/MyInstants roteado para o canal Música, recortar trecho → pad, adicionar à fila | |
 | 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), perfis, modo mini sempre no topo, bandeja, instalador | |
 

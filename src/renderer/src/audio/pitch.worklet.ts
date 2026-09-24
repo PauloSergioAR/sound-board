@@ -7,10 +7,6 @@
  * crossfade hides the seam. Aligning the seams avoids the "beating" of the simple two-head method.
  */
 
-declare const sampleRate: number
-declare function registerProcessor(name: string, processor: unknown): void
-declare class AudioWorkletProcessor {}
-
 const BUFFER_SIZE = 1 << 15 // power of two, comfortably above window + search + correlation
 const WINDOW_SECONDS = 0.04 // range the read head drifts over
 const SEARCH_SECONDS = 0.015 // how far to look for a matching seam (covers voices down to ~67 Hz)

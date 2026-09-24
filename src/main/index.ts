@@ -4,10 +4,12 @@ import { AUDIO_EXTENSIONS } from '../shared/defaults'
 import type { HotkeyBinding, Settings } from '../shared/types'
 import { setHotkeys } from './hotkeys'
 import { deleteSound, importSounds, readSound } from './library'
+import { allowMedia, handleMediaProtocol, registerMediaScheme } from './media'
 import { loadSettings, saveSettings } from './settings'
 
 // Sounds must play from global hotkeys without a click inside the window first.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
+registerMediaScheme()
 
 let mainWindow: BrowserWindow | null = null
 
@@ -37,22 +39,28 @@ function createWindow(): void {
   }
 }
 
+async function pickAudioFiles(title: string): Promise<string[]> {
+  const options: Electron.OpenDialogOptions = {
+    title,
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Áudio', extensions: AUDIO_EXTENSIONS }]
+  }
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options)
+  return result.canceled ? [] : result.filePaths
+}
+
 function registerIpc(): void {
-  ipcMain.handle('settings:load', () => loadSettings())
+  ipcMain.handle('settings:load', async () => {
+    const settings = await loadSettings()
+    await allowMedia(settings.deck.queue.map((t) => t.path))
+    return settings
+  })
   ipcMain.handle('settings:save', (_e, settings: Settings) => saveSettings(settings))
 
-  ipcMain.handle('sounds:pick', async () => {
-    const options: Electron.OpenDialogOptions = {
-      title: 'Importar sons',
-      properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Áudio', extensions: AUDIO_EXTENSIONS }]
-    }
-    const result = mainWindow
-      ? await dialog.showOpenDialog(mainWindow, options)
-      : await dialog.showOpenDialog(options)
-    return result.canceled ? [] : importSounds(result.filePaths)
-  })
+  ipcMain.handle('sounds:pick', async () => importSounds(await pickAudioFiles('Importar sons')))
   ipcMain.handle('sounds:import', (_e, paths: string[]) => importSounds(paths))
+  ipcMain.handle('music:pick', async () => allowMedia(await pickAudioFiles('Adicionar músicas')))
+  ipcMain.handle('music:add', (_e, paths: string[]) => allowMedia(paths))
   ipcMain.handle('sounds:read', (_e, file: string) => readSound(file))
   ipcMain.handle('sounds:delete', (_e, file: string) => deleteSound(file))
 
@@ -69,6 +77,7 @@ app.whenReady().then(() => {
   )
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
 
+  handleMediaProtocol()
   registerIpc()
   createWindow()
   app.on('activate', () => {

@@ -1,6 +1,7 @@
-import type { Settings } from '../../../shared/types'
+import { useRef } from 'react'
+import type { DuckingSettings, Settings } from '../../../shared/types'
 import { engine } from '../audio'
-import { type AudioDevices, isAlias, isCableInput, isHandsFree, isVirtual, useLevelRef } from '../hooks'
+import { type AudioDevices, isAlias, isCableInput, isHandsFree, isVirtual, useAnimationFrame, useLevelRef } from '../hooks'
 import { HotkeyInput } from './HotkeyInput'
 import { AlertIcon, CheckIcon } from './Icons'
 
@@ -10,6 +11,69 @@ interface Props {
   failedHotkeys: string[]
   onDevices: (devices: Partial<Settings['devices']>) => void
   onHotkeys: (hotkeys: Partial<Settings['hotkeys']>) => void
+  onDucking: (ducking: DuckingSettings) => void
+}
+
+const CALIBRATION_FLOOR = -70
+const CALIBRATION_CEIL = -10
+const toPercent = (db: number): number =>
+  Math.min(100, Math.max(0, ((db - CALIBRATION_FLOOR) / (CALIBRATION_CEIL - CALIBRATION_FLOOR)) * 100))
+
+/** Threshold and depth of the ducking, with a live mic meter to find the right threshold. */
+function DuckingCard({ ducking, onChange }: { ducking: DuckingSettings; onChange: (d: DuckingSettings) => void }): React.JSX.Element {
+  const fill = useRef<HTMLDivElement>(null)
+  useAnimationFrame(true, () => {
+    const db = engine.micDb()
+    if (!fill.current) return
+    fill.current.style.width = `${toPercent(db)}%`
+    fill.current.classList.toggle('over', db > ducking.threshold)
+  })
+
+  return (
+    <section className="card" aria-label="Ducking">
+      <div className="card-head">
+        <h2>Ducking da música</h2>
+        <label className="check">
+          <input type="checkbox" checked={ducking.enabled} onChange={(e) => onChange({ ...ducking, enabled: e.target.checked })} />
+          Ligado
+        </label>
+      </div>
+      <p className="muted small">
+        Quando você fala, a música abaixa sozinha e volta quando você para. Fale normalmente e ajuste a sensibilidade
+        até a barra ficar laranja só quando você fala.
+      </p>
+      <div className="calibration" aria-hidden="true">
+        <div ref={fill} className="calibration-fill" />
+        <div className="calibration-mark" style={{ left: `${toPercent(ducking.threshold)}%` }} />
+      </div>
+      <div className="field-row">
+        <label className="field">
+          <span className="field-label-row">
+            Sensibilidade <span className="mono">{ducking.threshold} dB</span>
+          </span>
+          <input
+            type="range"
+            min={CALIBRATION_FLOOR}
+            max={CALIBRATION_CEIL}
+            value={ducking.threshold}
+            onChange={(e) => onChange({ ...ducking, threshold: Number(e.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span className="field-label-row">
+            Quanto abaixa <span className="mono">−{ducking.amount} dB</span>
+          </span>
+          <input
+            type="range"
+            min={3}
+            max={30}
+            value={ducking.amount}
+            onChange={(e) => onChange({ ...ducking, amount: Number(e.target.value) })}
+          />
+        </label>
+      </div>
+    </section>
+  )
 }
 
 const DISCORD_STEPS = [
@@ -20,7 +84,7 @@ const DISCORD_STEPS = [
   'Detecção de voz com sensibilidade baixa, ou ajuste manual'
 ]
 
-export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotkeys }: Props): React.JSX.Element {
+export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotkeys, onDucking }: Props): React.JSX.Element {
   const { inputId, outputId, monitorId } = settings.devices
   const cable = devices.outputs.find(isCableInput)
   const input = devices.inputs.find((d) => d.deviceId === (inputId || 'default'))
@@ -62,7 +126,7 @@ export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotke
 
             <div className="flow-node accent">
               <span className="eyebrow orange">2 · Mixer</span>
-              <span>Voz + pads</span>
+              <span>Voz + pads + música</span>
               <span className="muted small">Limitador no master evita estourar</span>
             </div>
 
@@ -119,6 +183,8 @@ export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotke
             </button>
           </div>
         </section>
+
+        <DuckingCard ducking={settings.deck.ducking} onChange={onDucking} />
 
         {windowsDefaultOutput && isVirtual(windowsDefaultOutput) && (
           <p className="notice warn">
@@ -182,6 +248,24 @@ export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotke
               value={settings.hotkeys.toggleMic}
               failed={failedHotkeys.includes(settings.hotkeys.toggleMic)}
               onChange={(h) => h && onHotkeys({ toggleMic: h })}
+            />
+          </div>
+          <div className="hotkey-row">
+            <label htmlFor="hk-deck">Tocar / pausar música</label>
+            <HotkeyInput
+              id="hk-deck"
+              value={settings.hotkeys.deckToggle}
+              failed={failedHotkeys.includes(settings.hotkeys.deckToggle)}
+              onChange={(h) => h && onHotkeys({ deckToggle: h })}
+            />
+          </div>
+          <div className="hotkey-row">
+            <label htmlFor="hk-next">Próxima música</label>
+            <HotkeyInput
+              id="hk-next"
+              value={settings.hotkeys.deckNext}
+              failed={failedHotkeys.includes(settings.hotkeys.deckNext)}
+              onChange={(h) => h && onHotkeys({ deckNext: h })}
             />
           </div>
           <div className="hotkey-row">

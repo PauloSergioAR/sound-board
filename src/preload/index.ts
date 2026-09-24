@@ -9,6 +9,10 @@ const api = {
   importSounds: (paths: string[]): Promise<ImportedSound[]> => ipcRenderer.invoke('sounds:import', paths),
   readSound: (file: string): Promise<Uint8Array> => ipcRenderer.invoke('sounds:read', file),
   deleteSound: (file: string): Promise<void> => ipcRenderer.invoke('sounds:delete', file),
+  /** Opens a file dialog; returns the playable music paths chosen. */
+  pickMusic: (): Promise<string[]> => ipcRenderer.invoke('music:pick'),
+  /** Registers dropped files as playable; returns the ones accepted. */
+  addMusic: (paths: string[]): Promise<string[]> => ipcRenderer.invoke('music:add', paths),
   /** Full path of a file dropped onto the window. */
   pathForFile: (file: File): string => webUtils.getPathForFile(file),
 

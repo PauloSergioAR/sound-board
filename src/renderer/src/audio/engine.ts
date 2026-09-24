@@ -1,4 +1,6 @@
-import type { BusId, Pad, PadMode } from '../../../shared/types'
+import type { BusId, DuckingSettings, Pad, PadMode } from '../../../shared/types'
+import { MusicDeck } from './deck'
+import duckerWorkletUrl from './ducker.worklet.ts?worker&url'
 import type { VoiceFxParams } from './presets'
 import { VoiceFx } from './voiceFx'
 
@@ -6,7 +8,9 @@ import { VoiceFx } from './voiceFx'
  * The whole audio graph.
  *
  *   mic ─► micGate ─► voiceFx ─► voice ─┬──────────────► master ─► limiter ─► output device (CABLE Input)
- *   pads ─────────────────────► sfx ────┼──────────────►
+ *   pads ─────────────────────► sfx ────┤
+ *   deck ─► musicIn ─► ducker ─► music ─┤
+ *                 micGate ───┘ (sidechain)
  *                                        └► monitor ─► [bridge] ─► monitor device (your headphones)
  *   voice ─► monitorVoice (0/1) ─► monitor
  *
@@ -42,12 +46,31 @@ export class AudioEngine {
   private readonly buses: Record<BusId, GainNode> = {
     voice: this.ctx.createGain(),
     sfx: this.ctx.createGain(),
+    music: this.ctx.createGain(),
     master: this.ctx.createGain(),
     monitor: this.ctx.createGain()
   }
+  private readonly musicIn = this.ctx.createGain()
+  readonly deck = new MusicDeck(this.ctx, this.musicIn)
+  private ducker: AudioWorkletNode | null = null
+  private ducking: DuckingSettings = { enabled: true, amount: 12, threshold: -40 }
+  /** How far the ducker is currently pulling the music down, in dB (≤ 0). */
+  duckDb = 0
+  /** Resolves to false if the ducker could not load (music then plays without ducking). */
+  readonly duckerReady: Promise<boolean> = this.ctx.audioWorklet.addModule(duckerWorkletUrl).then(
+    () => {
+      this.installDucker()
+      return true
+    },
+    (err) => {
+      console.error('Ducker failed to load', err)
+      return false
+    }
+  )
   private readonly monitorVoice = this.ctx.createGain()
   private readonly limiter = this.ctx.createDynamicsCompressor()
   private readonly analysers = {} as Record<BusId, AnalyserNode>
+  private readonly micAnalyser = this.ctx.createAnalyser()
   private readonly levelBuffer = new Float32Array(1024)
 
   private mic: { stream: MediaStream; source: MediaStreamAudioSourceNode } | null = null
@@ -64,6 +87,10 @@ export class AudioEngine {
     buses.voice.connect(this.monitorVoice).connect(buses.monitor)
     buses.sfx.connect(buses.master)
     buses.sfx.connect(buses.monitor)
+    // Plays without ducking until the ducker worklet loads and takes its place.
+    this.musicIn.connect(buses.music)
+    buses.music.connect(buses.master)
+    buses.music.connect(buses.monitor)
 
     // Brick-wall-ish limiter so a loud pad plus voice never clips on the other side.
     this.limiter.threshold.value = -3
@@ -83,6 +110,8 @@ export class AudioEngine {
       ;(id === 'master' ? this.limiter : buses[id]).connect(analyser)
       this.analysers[id] = analyser
     }
+    this.micAnalyser.fftSize = this.levelBuffer.length
+    this.micGate.connect(this.micAnalyser)
     this.monitorVoice.gain.value = 0
   }
 
@@ -131,6 +160,31 @@ export class AudioEngine {
     this.ramp(this.micGate.gain, enabled ? 1 : 0)
   }
 
+  private installDucker(): void {
+    const ducker = new AudioWorkletNode(this.ctx, 'ducker', { numberOfInputs: 2, outputChannelCount: [2] })
+    ducker.port.onmessage = (e: MessageEvent<number>) => (this.duckDb = e.data)
+    this.musicIn.disconnect(this.buses.music)
+    this.musicIn.connect(ducker, 0, 0)
+    // Sidechain from the raw mic after the mute gate: a muted mic never ducks the music.
+    this.micGate.connect(ducker, 0, 1)
+    ducker.connect(this.buses.music)
+    this.ducker = ducker
+    this.setDucking(this.ducking)
+  }
+
+  setDucking(ducking: DuckingSettings): void {
+    this.ducking = ducking
+    if (!this.ducker) return
+    const t = this.ctx.currentTime
+    this.ducker.parameters.get('amount')!.setValueAtTime(ducking.enabled ? ducking.amount : 0, t)
+    this.ducker.parameters.get('threshold')!.setValueAtTime(ducking.threshold, t)
+  }
+
+  /** Current mic level in dBFS, as the ducker sees it — for calibrating its threshold. */
+  micDb(): number {
+    return this.rmsDb(this.micAnalyser)
+  }
+
   setVoiceFx(params: VoiceFxParams): void {
     this.voiceFx.apply(params)
   }
@@ -145,12 +199,16 @@ export class AudioEngine {
 
   /** Current level of a bus, 0–1 on a −60…0 dBFS scale. */
   getLevel(id: BusId): number {
-    this.analysers[id].getFloatTimeDomainData(this.levelBuffer)
+    const db = this.rmsDb(this.analysers[id])
+    return Math.min(1, Math.max(0, (db - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB))
+  }
+
+  private rmsDb(analyser: AnalyserNode): number {
+    analyser.getFloatTimeDomainData(this.levelBuffer)
     let sum = 0
     for (const v of this.levelBuffer) sum += v * v
     const rms = Math.sqrt(sum / this.levelBuffer.length)
-    const db = rms > 0 ? 20 * Math.log10(rms) : LEVEL_FLOOR_DB
-    return Math.min(1, Math.max(0, (db - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB))
+    return rms > 0 ? 20 * Math.log10(rms) : -Infinity
   }
 
   private ramp(param: AudioParam, value: number): void {
@@ -185,7 +243,7 @@ export class AudioEngine {
     await this.resume()
     const buffer = await this.load(pad.file)
     if (mode === 'restart') this.stopPad(pad.id)
-    if (mode === 'exclusive') this.stopAll()
+    if (mode === 'exclusive') this.stopPads()
 
     const source = this.ctx.createBufferSource()
     source.buffer = buffer
@@ -211,8 +269,14 @@ export class AudioEngine {
     for (const sound of this.active.get(padId) ?? []) sound.source.stop()
   }
 
-  stopAll(): void {
+  stopPads(): void {
     for (const padId of [...this.active.keys()]) this.stopPad(padId)
+  }
+
+  /** The panic button: silences pads and pauses the music. */
+  stopAll(): void {
+    this.stopPads()
+    this.deck.pause()
   }
 
   isPlaying(padId: string): boolean {
