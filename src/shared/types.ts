@@ -93,6 +93,34 @@ export interface BrowserSettings {
   lastUrl: string
 }
 
+/** Control from a phone on the same network. */
+export interface RemoteSettings {
+  enabled: boolean
+  /** Secret that must be in every request; it travels inside the QR code. */
+  token: string
+  port: number
+}
+
+/** What the phone page shows; pushed by the app whenever it changes. */
+export interface RemoteState {
+  categories: Category[]
+  pads: Pick<Pad, 'id' | 'name' | 'categoryId' | 'color'>[]
+  playing: string[]
+  micEnabled: boolean
+  fxEnabled: boolean
+  fxName: string
+  deck: { playing: boolean; track: string | null }
+}
+
+export interface RemoteInfo {
+  running: boolean
+  port: number
+  /** One address per network adapter, best guess first. */
+  urls: string[]
+  clients: number
+  error?: string
+}
+
 export interface Settings {
   version: 1
   categories: Category[]
@@ -105,6 +133,7 @@ export interface Settings {
   voiceFx: VoiceFxSettings
   deck: DeckSettings
   browser: BrowserSettings
+  remote: RemoteSettings
   padMode: PadMode
   hotkeys: {
     stopAll: string

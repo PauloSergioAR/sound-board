@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { BusId, HotkeyBinding, ImportedSound, Pad, Settings, Track } from '../../shared/types'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import type { BusId, HotkeyBinding, ImportedSound, Pad, RemoteInfo, Settings, Track } from '../../shared/types'
 import { engine } from './audio'
 import { probeDuration } from './audio/deck'
-import { resolveParams } from './audio/presets'
+import { presetById, resolveParams } from './audio/presets'
 import { type Clip, encodeWav } from './audio/wav'
 import { BrowserView } from './components/BrowserView'
 import { ClipEditor } from './components/ClipEditor'
@@ -12,10 +12,11 @@ import { Header, type View } from './components/Header'
 import { Mixer } from './components/Mixer'
 import { PadEditor } from './components/PadEditor'
 import { PadGrid } from './components/PadGrid'
+import { RemoteDialog } from './components/RemoteDialog'
 import { SetupView } from './components/SetupView'
 import { Sidebar } from './components/Sidebar'
 import { VoicePanel } from './components/VoicePanel'
-import { isAlias, isCableInput, isCableOutput, isVirtual, useDevices, useSettings } from './hooks'
+import { isAlias, isCableInput, isCableOutput, isVirtual, useDevices, usePlayingVersion, useSettings } from './hooks'
 import { useHotkeyCapture } from './hotkey'
 
 const newId = (): string => crypto.randomUUID()
@@ -43,6 +44,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   const [pitchAvailable, setPitchAvailable] = useState(true)
   const [clip, setClip] = useState<Clip | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [remoteOpen, setRemoteOpen] = useState(false)
+  const [remoteInfo, setRemoteInfo] = useState<RemoteInfo | null>(null)
   const { devices: dev, mixer, pads } = settings
 
   // ── Audio routing ──────────────────────────────────────
@@ -99,6 +102,34 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   useEffect(() => engine.setDucking(settings.deck.ducking), [settings.deck.ducking])
   useEffect(() => engine.setBrowserRoute(settings.browser.route), [settings.browser.route])
   useEffect(() => engine.setBrowserVolume(settings.browser.volume), [settings.browser.volume])
+
+  // ── Phone remote ───────────────────────────────────────
+
+  useEffect(() => {
+    window.api.configureRemote(settings.remote).then(setRemoteInfo)
+  }, [settings.remote])
+  useEffect(() => window.api.onRemoteInfo(setRemoteInfo), [])
+  // "Gerar novo link" clears the token; a fresh one comes from the main process.
+  useEffect(() => {
+    if (!settings.remote.token)
+      window.api.newRemoteToken().then((token) => update((s) => ({ ...s, remote: { ...s.remote, token } })))
+  }, [settings.remote.token, update])
+
+  const deckState = useSyncExternalStore(engine.deck.subscribe, engine.deck.getState)
+  const playingVersion = usePlayingVersion()
+  useEffect(() => {
+    if (!remoteInfo?.running) return
+    const track = playlists.flatMap((p) => p.tracks).find((t) => t.id === deckState.currentId)
+    window.api.sendRemoteState({
+      categories: settings.categories,
+      pads: pads.map(({ id, name, categoryId, color }) => ({ id, name, categoryId, color })),
+      playing: pads.filter((p) => engine.isPlaying(p.id)).map((p) => p.id),
+      micEnabled: settings.micEnabled,
+      fxEnabled: settings.voiceFx.enabled,
+      fxName: presetById(settings.voiceFx.preset).name,
+      deck: { playing: deckState.playing, track: track?.name ?? null }
+    })
+  }, [remoteInfo?.running, settings.categories, pads, settings.micEnabled, settings.voiceFx, deckState, playingVersion, playlists])
 
   // Fill in track durations in the background for the playlists.
   const probing = useRef(new Set<string>())
@@ -257,6 +288,8 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
         onView={setView}
         outputLabel={output ? output.label.replace(/^Default - /, '').replace(/\s*\(.*\)$/, '') : null}
         outputIsCable={!!output && isCableInput(output)}
+        remoteClients={remoteInfo?.running ? remoteInfo.clients : null}
+        onRemote={() => setRemoteOpen(true)}
       />
 
       <div className="stage">
@@ -375,6 +408,15 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
           defaultCategoryId={category.id}
           onSave={saveClip}
           onClose={() => setClip(null)}
+        />
+      )}
+
+      {remoteOpen && (
+        <RemoteDialog
+          remote={settings.remote}
+          info={remoteInfo}
+          onChange={(change) => update((s) => ({ ...s, remote: { ...s.remote, ...change } }))}
+          onClose={() => setRemoteOpen(false)}
         />
       )}
 

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#131217">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>SoundBoard · Controle</title>
+<style nonce="__NONCE__">
+  :root {
+    --bg: #131217; --surface: #17161b; --panel: #1c1b21; --panel-2: #24232b; --line: #2a2931; --line-strong: #3a3843;
+    --text: #eeeae3; --muted: #a9a4b3; --dim: #8c8797;
+    --orange: #f5a524; --orange-ink: #1a1307; --orange-soft: #2b2112; --blue: #6cb4f5; --blue-soft: #1b2632;
+    --violet: #b79cf7; --red: #e0605a; --red-soft: #2a1b1b; --red-ink: #1b0b0a; --green: #7bd88f;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.3 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; }
+  body { min-height: 100dvh; display: flex; flex-direction: column; user-select: none; -webkit-user-select: none; }
+  button { font: inherit; color: inherit; border: 0; cursor: pointer; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--orange); color: var(--orange-ink); display: grid; place-items: center; }
+  .brand { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; flex-grow: 1; }
+  .status { display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--red-soft); color: #f3b1ad; }
+  .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
+  .status.on { background: var(--orange-soft); color: #ffd08a; }
+  .status.on::before { background: var(--orange); }
+  .chips { display: flex; gap: 8px; padding: 12px 16px 4px; overflow-x: auto; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex-shrink: 0; padding: 8px 14px; border-radius: 999px; background: transparent; border: 1px solid var(--line-strong); color: var(--muted); font-size: 14px; font-weight: 600; }
+  .chip[aria-pressed="true"] { background: var(--line); border-color: var(--line); color: var(--text); }
+  main { flex-grow: 1; padding: 12px 16px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  @media (min-width: 480px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .pad { --c: var(--orange); position: relative; min-height: 92px; padding: 12px; border-radius: 14px; background: var(--panel); border: 1px solid #2e2c36; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; text-align: left; overflow: hidden; transition: transform 80ms; }
+  .pad:active { transform: scale(0.97); background: #211f27; }
+  .pad.blue { --c: var(--blue); } .pad.violet { --c: var(--violet); }
+  .pad .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+  .pad .name { font-weight: 700; font-size: 17px; line-height: 1.15; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .pad.playing { border-color: var(--c); background: #25222a; }
+  .pad.playing::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--c); animation: pulse 0.9s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: 0.35; } to { opacity: 1; } }
+  .empty { padding: 40px 12px; text-align: center; color: var(--dim); }
+  footer { position: sticky; bottom: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+  .controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .ctl { min-height: 58px; padding: 6px 4px; border-radius: 12px; background: var(--panel-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .ctl svg { width: 20px; height: 20px; }
+  .ctl.on { color: var(--text); }
+  .ctl.mic.on { background: var(--blue-soft); color: var(--blue); }
+  .ctl.mic.off { background: var(--red-soft); color: #f3b1ad; }
+  .ctl.fx.on { background: var(--orange); color: var(--orange-ink); }
+  .ctl.music.on { background: #2a2340; color: var(--violet); }
+  .ctl .sub { font-weight: 400; font-size: 11px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stop { min-height: 56px; border-radius: 14px; background: var(--red); color: var(--red-ink); font-weight: 800; font-size: 18px; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .stop:active, .ctl:active { filter: brightness(0.9); }
+  .denied { margin: auto; padding: 32px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <span class="mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></span>
+  <span class="brand">SoundBoard</span>
+  <span class="status" id="status">Conectando…</span>
+</header>
+<nav class="chips" id="chips" aria-label="Categorias"></nav>
+<main><div class="grid" id="grid"></div></main>
+<footer>
+  <button class="stop" data-action="stopAll" type="button">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+    PARAR TUDO
+  </button>
+  <div class="controls">
+    <button class="ctl mic" id="mic" data-action="toggleMic" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      <span id="mic-label">Mic</span>
+    </button>
+    <button class="ctl fx" id="fx" data-action="toggleFx" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h2l2-6 4 12 3-9 2 3h3"/></svg>
+      <span>Efeito</span><span class="sub" id="fx-name"></span>
+    </button>
+    <button class="ctl music" id="music" data-action="deckToggle" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <span id="music-label">Música</span><span class="sub" id="track"></span>
+    </button>
+    <button class="ctl" data-action="deckNext" type="button">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5l9 7-9 7zM17 5h2v14h-2z"/></svg>
+      <span>Próxima</span>
+    </button>
+  </div>
+</footer>
+<script nonce="__NONCE__">
+(() => {
+  const token = new URLSearchParams(location.search).get('t') || ''
+  const $ = (id) => document.getElementById(id)
+  let state = null
+  let category = null
+
+  const send = (action) => {
+    if (navigator.vibrate) navigator.vibrate(12)
+    fetch('/action?t=' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    }).catch(() => {})
+  }
+
+  document.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-action]')
+    if (target) send(target.dataset.action)
+    const chip = e.target.closest('[data-category]')
+    if (chip) { category = chip.dataset.category; render() }
+  })
+
+  function render() {
+    if (!state) return
+    const withPads = state.categories.filter((c) => state.pads.some((p) => p.categoryId === c.id))
+    if (!state.categories.some((c) => c.id === category)) category = (withPads[0] || state.categories[0] || {}).id
+
+    const chips = $('chips')
+    chips.replaceChildren(...state.categories.map((c) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'chip'
+      b.dataset.category = c.id
+      b.setAttribute('aria-pressed', String(c.id === category))
+      b.textContent = c.name
+      return b
+    }))
+
+    const playing = new Set(state.playing)
+    const pads = state.pads.filter((p) => p.categoryId === category)
+    const grid = $('grid')
+    if (!pads.length) {
+      const empty = document.createElement('p')
+      empty.className = 'empty'
+      empty.textContent = 'Nenhum som nesta categoria.'
+      grid.replaceChildren(empty)
+    } else {
+      grid.replaceChildren(...pads.map((p) => {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.className = 'pad ' + p.color + (playing.has(p.id) ? ' playing' : '')
+        b.dataset.action = 'pad:' + p.id
+        const dot = document.createElement('span')
+        dot.className = 'dot'
+        const name = document.createElement('span')
+        name.className = 'name'
+        name.textContent = p.name
+        b.append(dot, name)
+        return b
+      }))
+    }
+
+    $('mic').className = 'ctl mic ' + (state.micEnabled ? 'on' : 'off')
+    $('mic-label').textContent = state.micEnabled ? 'Mic ligado' : 'Mic mudo'
+    $('fx').className = 'ctl fx' + (state.fxEnabled ? ' on' : '')
+    $('fx-name').textContent = state.fxEnabled ? state.fxName : 'desligado'
+    $('music').className = 'ctl music' + (state.deck.playing ? ' on' : '')
+    $('music-label').textContent = state.deck.playing ? 'Pausar' : 'Tocar'
+    $('track').textContent = state.deck.track || ''
+  }
+
+  const events = new EventSource('/events?t=' + encodeURIComponent(token))
+  events.addEventListener('state', (e) => { state = JSON.parse(e.data); render() })
+  events.onopen = () => { $('status').textContent = 'Conectado'; $('status').className = 'status on' }
+  events.onerror = () => { $('status').textContent = 'Reconectando…'; $('status').className = 'status' }
+})()
+</script>
+</body>
+</html>

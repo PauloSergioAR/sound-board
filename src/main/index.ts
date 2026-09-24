@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain, session, shell } from 'electron'
 import { join } from 'node:path'
 import { AUDIO_EXTENSIONS } from '../shared/defaults'
-import type { HotkeyBinding, Settings } from '../shared/types'
+import type { HotkeyBinding, RemoteSettings, RemoteState, Settings } from '../shared/types'
 import { setHotkeys } from './hotkeys'
 import { setupBrowser } from './browser'
 import { deleteSound, importSounds, readSound, saveSound } from './library'
 import { allowMedia, handleMediaProtocol, registerMediaScheme } from './media'
+import { newRemoteToken, RemoteServer } from './remote/server'
 import { loadSettings, saveSettings } from './settings'
 import { handleSquirrelEvent } from './squirrel'
 import { installVbCable, VBCABLE_PAGE } from './vbcable'
@@ -57,6 +58,7 @@ async function pickAudioFiles(title: string): Promise<string[]> {
 function registerIpc(): void {
   ipcMain.handle('settings:load', async () => {
     const settings = await loadSettings()
+    if (!settings.remote.token) settings.remote.token = newRemoteToken()
     await allowMedia(settings.deck.playlists.flatMap((p) => p.tracks.map((t) => t.path)))
     return settings
   })
@@ -84,7 +86,21 @@ function registerIpc(): void {
   })
   // Only VB-Audio's page (to donate or download by hand) may be opened in the system browser.
   ipcMain.handle('vbcable:open-page', () => shell.openExternal(VBCABLE_PAGE))
+
+  // Phone remote: started/stopped from the settings; its actions arrive like global hotkeys.
+  ipcMain.handle('remote:configure', async (_e, remote: RemoteSettings) => {
+    if (remote.enabled) await remoteServer.start(remote.port, remote.token, process.env.SOUNDBOARD_REMOTE_HOST)
+    else await remoteServer.stop()
+    return remoteServer.info()
+  })
+  ipcMain.handle('remote:new-token', () => newRemoteToken())
+  ipcMain.on('remote:state', (_e, state: RemoteState) => remoteServer.setState(state))
 }
+
+const remoteServer = new RemoteServer(
+  (action) => mainWindow?.webContents.send('hotkey', action),
+  () => mainWindow?.webContents.send('remote:info', remoteServer.info())
+)
 
 function start(): void {
   // A second copy would fight over the global shortcuts and the virtual cable: focus this one instead.
@@ -111,7 +127,10 @@ function start(): void {
     })
   })
 
-  app.on('will-quit', () => globalShortcut.unregisterAll())
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
+    remoteServer.stop()
+  })
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
   })

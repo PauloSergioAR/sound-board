@@ -30,6 +30,8 @@ export function defaultSettings(): Settings {
       ducking: { enabled: true, amount: 12, threshold: -40 }
     },
     browser: { route: 'music', volume: 0.8, lastUrl: 'https://www.youtube.com' },
+    // The token is filled in by the main process on first load (it needs a secure random source).
+    remote: { enabled: false, token: '', port: 4848 },
     padMode: 'overlap',
     // Electron cannot bind the Pause key, so "stop everything" defaults to F11.
     hotkeys: { stopAll: 'F11', toggleMic: 'F10', toggleFx: 'F9', deckToggle: 'F7', deckNext: 'F8' }
@@ -59,6 +61,7 @@ export function withDefaults(partial: Partial<Settings> | null): Settings {
     voiceFx: { ...base.voiceFx, ...partial.voiceFx },
     deck: withDeckDefaults(base.deck, partial.deck),
     browser: { ...base.browser, ...partial.browser },
+    remote: { ...base.remote, ...partial.remote },
     hotkeys: { ...base.hotkeys, ...partial.hotkeys },
     categories: partial.categories?.length ? partial.categories : base.categories,
     pads: partial.pads ?? []

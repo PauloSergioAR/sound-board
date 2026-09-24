@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { HotkeyBinding, ImportedSound, Settings, VbCableStep } from '../shared/types'
+import type {
+  HotkeyBinding,
+  ImportedSound,
+  RemoteInfo,
+  RemoteSettings,
+  RemoteState,
+  Settings,
+  VbCableStep
+} from '../shared/types'
 
 const api = {
   loadSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:load'),
@@ -40,6 +48,17 @@ const api = {
     }
   },
   openVbCablePage: (): Promise<void> => ipcRenderer.invoke('vbcable:open-page'),
+
+  /** Starts or stops the phone remote to match the settings. */
+  configureRemote: (remote: RemoteSettings): Promise<RemoteInfo> => ipcRenderer.invoke('remote:configure', remote),
+  newRemoteToken: (): Promise<string> => ipcRenderer.invoke('remote:new-token'),
+  /** What the phone page shows. */
+  sendRemoteState: (state: RemoteState): void => ipcRenderer.send('remote:state', state),
+  onRemoteInfo: (callback: (info: RemoteInfo) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, info: RemoteInfo): void => callback(info)
+    ipcRenderer.on('remote:info', listener)
+    return () => ipcRenderer.removeListener('remote:info', listener)
+  },
 
   /** Returns the accelerators that failed to register. */
   setHotkeys: (bindings: HotkeyBinding[]): Promise<string[]> => ipcRenderer.invoke('hotkeys:set', bindings),

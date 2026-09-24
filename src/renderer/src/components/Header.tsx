@@ -1,5 +1,5 @@
 import { useLevelRef } from '../hooks'
-import { LogoIcon } from './Icons'
+import { LogoIcon, PhoneIcon } from './Icons'
 
 export type View = 'pads' | 'music' | 'browser' | 'setup'
 
@@ -9,6 +9,9 @@ interface Props {
   /** Label of the device the mix goes to, or null when none is chosen. */
   outputLabel: string | null
   outputIsCable: boolean
+  /** Phones connected to the remote, or null when it is off. */
+  remoteClients: number | null
+  onRemote: () => void
 }
 
 const TABS: { id: View; label: string }[] = [
@@ -18,7 +21,7 @@ const TABS: { id: View; label: string }[] = [
   { id: 'setup', label: 'Dispositivos' }
 ]
 
-export function Header({ view, onView, outputLabel, outputIsCable }: Props): React.JSX.Element {
+export function Header({ view, onView, outputLabel, outputIsCable, remoteClients, onRemote }: Props): React.JSX.Element {
   const meter = useLevelRef<HTMLDivElement>('master')
 
   return (
@@ -43,6 +46,15 @@ export function Header({ view, onView, outputLabel, outputIsCable }: Props): Rea
         ))}
       </nav>
       <div className="spacer" />
+      <button
+        type="button"
+        className={remoteClients === null ? 'remote-button' : 'remote-button on'}
+        onClick={onRemote}
+        title="Controlar pelo celular"
+      >
+        <PhoneIcon size={16} />
+        {remoteClients === null ? 'Celular' : remoteClients > 0 ? `Celular · ${remoteClients}` : 'Celular · pronto'}
+      </button>
       {outputLabel ? (
         <button type="button" className={outputIsCable ? 'on-air' : 'on-air warn'} onClick={() => onView('setup')}>
           <span className="dot" />

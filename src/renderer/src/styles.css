@@ -206,6 +206,61 @@ h2 {
   color: var(--text);
 }
 
+.remote-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.remote-button:hover {
+  color: var(--text);
+}
+.remote-button.on {
+  border-color: #2c5a37;
+  background: #16261b;
+  color: #c6ecd0;
+}
+
+.dialog.remote {
+  width: 600px;
+}
+.remote-body {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.qr {
+  flex-shrink: 0;
+  width: 240px;
+  height: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--text);
+}
+.qr img {
+  display: block;
+}
+.remote-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.remote-side p {
+  margin: 0;
+  line-height: 1.5;
+}
+.remote-address {
+  color: var(--text-2);
+  word-break: break-all;
+}
+
 .on-air {
   display: flex;
   align-items: center;

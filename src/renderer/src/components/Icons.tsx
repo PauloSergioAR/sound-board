@@ -116,6 +116,13 @@ export const MusicIcon = (p: IconProps): React.JSX.Element => (
   </Stroke>
 )
 
+export const PhoneIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <rect x="6" y="2" width="12" height="20" rx="2.5" />
+    <path d="M11 18h2" />
+  </Stroke>
+)
+
 export const RepeatIcon = (p: IconProps): React.JSX.Element => (
   <Stroke {...p}>
     <path d="M17 2l4 4-4 4" />

@@ -67,6 +67,10 @@ Na primeira vez, o Electron baixa o próprio binário.
     para escolher o trecho, ouça no fone e salve como pad.
   - **Downloads:** arquivos de áudio baixados no navegador (o botão de download do MyInstants, por exemplo) viram pad
     na categoria atual.
+- **Controle pelo celular:** clique em **Celular** no topo, ative e aponte a câmera para o QR code. O celular precisa
+  estar no mesmo Wi-Fi. A página mostra os pads por categoria, com Parar tudo, mic, efeito de voz e música, e acende
+  o pad que está tocando. O link tem uma chave secreta: sem ela o servidor nem responde. "Gerar novo link" desconecta
+  quem tiver o antigo. Na primeira vez, permita o SoundBoard em redes privadas no aviso do Firewall do Windows.
 - **Atalhos padrão:** `F7` toca/pausa a música, `F8` pula para a próxima, `F9` liga/desliga o efeito de voz, `F10`
   muta/desmuta o mic e `F11` para tudo (sons e música). Todos podem ser trocados em Dispositivos.
 
