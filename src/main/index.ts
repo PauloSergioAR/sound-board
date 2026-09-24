@@ -57,7 +57,7 @@ async function pickAudioFiles(title: string): Promise<string[]> {
 function registerIpc(): void {
   ipcMain.handle('settings:load', async () => {
     const settings = await loadSettings()
-    await allowMedia(settings.deck.queue.map((t) => t.path))
+    await allowMedia(settings.deck.playlists.flatMap((p) => p.tracks.map((t) => t.path)))
     return settings
   })
   ipcMain.handle('settings:save', (_e, settings: Settings) => saveSettings(settings))

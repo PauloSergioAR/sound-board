@@ -5,6 +5,69 @@ import { isAudioFile, newSoundFile, soundPath } from './library'
 
 const PAUSE_MEDIA_SCRIPT = `document.querySelectorAll('video, audio').forEach((m) => { if (!m.paused) m.pause() })`
 
+const isMyInstants = (url: string): boolean => {
+  try {
+    return /(^|\.)myinstants\.com$/.test(new URL(url).hostname)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Pad name for a downloaded sound. MyInstants' "Baixar MP3" names the file after its slug
+ * ("psycho-scream-soundbible.mp3"), so on a sound's own page the title ("Jogo do botão - …") is used.
+ */
+function soundName(filename: string, source: Electron.WebContents | undefined): string {
+  const fallback = basename(filename, extname(filename))
+  if (!source || !isMyInstants(source.getURL()) || !source.getURL().includes('/instant/')) return fallback
+  return source.getTitle().split(' - ')[0].trim() || fallback
+}
+
+/**
+ * Adds a "+ Pad" button to every sound on MyInstants pages (lists and a sound's own page). It
+ * triggers a normal download of that sound's MP3, named after the sound, which will-download above
+ * turns into a pad. Only runs inside the app's own browser.
+ */
+const MYINSTANTS_SCRIPT = `(() => {
+  if (window.__soundboardPads) return
+  window.__soundboardPads = true
+  const style = document.createElement('style')
+  style.textContent = '.sb-add{display:block;margin:6px auto 0;padding:3px 10px;border:0;border-radius:999px;background:#F5A524;color:#1A1307;font:600 12px system-ui,sans-serif;cursor:pointer}.sb-add:hover{background:#FFC266}.sb-add[disabled]{background:#3A3843;color:#EEEAE3;cursor:default}'
+  document.head.append(style)
+  // One listener for all buttons: the site re-creates its elements after loading, which drops
+  // listeners attached to the buttons themselves. Everything needed lives in data attributes.
+  document.addEventListener('click', (event) => {
+    const button = event.target instanceof Element && event.target.closest('.sb-add')
+    if (!button || button.disabled) return
+    event.preventDefault()
+    event.stopPropagation()
+    const link = document.createElement('a')
+    link.href = button.dataset.sbUrl
+    link.download = button.dataset.sbName.replace(/[\\\\/:*?"<>|]/g, '') + '.mp3'
+    document.body.append(link)
+    link.click()
+    link.remove()
+    button.textContent = 'Adicionado'
+    button.disabled = true
+  }, true)
+  const decorate = () => document.querySelectorAll('.instant').forEach((instant) => {
+    if (instant.querySelector(':scope > .sb-add')) return
+    const match = /play\\('([^']+\\.mp3)'/.exec(instant.querySelector('button[onclick^="play("]')?.getAttribute('onclick') || '')
+    if (!match) return
+    const name = (instant.querySelector('.instant-link')?.textContent || document.querySelector('h1')?.textContent || 'Som').trim()
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'sb-add'
+    button.textContent = '+ Pad'
+    button.title = 'Adicionar "' + name + '" aos pads do SoundBoard'
+    button.dataset.sbUrl = match[1]
+    button.dataset.sbName = name
+    instant.append(button)
+  })
+  decorate()
+  new MutationObserver(decorate).observe(document.body, { childList: true, subtree: true })
+})()`
+
 /** Cookies and logins of the embedded browser live here, apart from the app's own session. */
 export const BROWSER_PARTITION = 'persist:browser'
 
@@ -23,11 +86,20 @@ export function setupBrowser(getWindow: () => BrowserWindow | null): void {
   ses.setPermissionRequestHandler((_wc, permission, callback) => callback(allowed.has(permission)))
   ses.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
 
-  ses.on('will-download', (_event, item) => {
+  const recent = new Map<string, number>()
+  ses.on('will-download', (event, item, source) => {
     const original = item.getFilename()
     // Anything that is not audio gets the normal "save as" dialog.
     if (!isAudioFile(original)) return
-    const name = basename(original, extname(original))
+    // Some pages fire the same download twice for one click; one pad is enough.
+    const url = item.getURL()
+    const now = Date.now()
+    if (now - (recent.get(url) ?? 0) < 5000) {
+      event.preventDefault()
+      return
+    }
+    recent.set(url, now)
+    const name = soundName(original, source)
     const file = newSoundFile(name, extname(original))
     item.setSavePath(soundPath(file))
     item.once('done', (_e, state) => {
@@ -45,8 +117,14 @@ export function setupBrowser(getWindow: () => BrowserWindow | null): void {
     })
     if (contents.getType() === 'webview') {
       disguiseWebContents(contents)
+      const decorate = (): void => {
+        if (isMyInstants(contents.getURL())) contents.executeJavaScript(MYINSTANTS_SCRIPT).catch(() => undefined)
+      }
+      contents.on('dom-ready', decorate)
+      contents.on('did-navigate-in-page', decorate)
       contents.setWindowOpenHandler(({ url }) => {
-        if (/^https?:/i.test(url)) contents.loadURL(url)
+        // A "download" link with target=_blank also asks for a window; the download already started.
+        if (/^https?:/i.test(url) && !isAudioFile(new URL(url).pathname)) contents.loadURL(url)
         return { action: 'deny' }
       })
     }

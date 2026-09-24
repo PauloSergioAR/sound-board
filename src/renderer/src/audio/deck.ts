@@ -14,7 +14,7 @@ export interface DeckState {
 }
 
 /**
- * Music player with a queue. Two <audio> elements take turns so the next track can fade in while
+ * Music player over a playlist. Two <audio> elements take turns so the next track can fade in while
  * the current one fades out. Files stream from disk; they are never fully decoded into memory.
  */
 export class MusicDeck {
@@ -23,6 +23,7 @@ export class MusicDeck {
   private queue: Track[] = []
   private currentId: string | null = null
   private crossfade = 3
+  private repeat = false
   private advancing = false
   private error: string | null = null
   private readonly listeners = new Set<() => void>()
@@ -65,12 +66,17 @@ export class MusicDeck {
     return this.slots[this.active]
   }
 
+  /** The tracks next/previous move through: the playing playlist. */
   setQueue(queue: Track[]): void {
     this.queue = queue
   }
 
   setCrossfade(seconds: number): void {
     this.crossfade = seconds
+  }
+
+  setRepeat(repeat: boolean): void {
+    this.repeat = repeat
   }
 
   /** Plays a track from the queue, crossfading if something is already playing. */
@@ -131,7 +137,7 @@ export class MusicDeck {
 
   next(): void {
     const index = this.queue.findIndex((t) => t.id === this.currentId)
-    const next = this.queue[index + 1]
+    const next = this.queue[index + 1] ?? (this.repeat ? this.queue[0] : undefined)
     if (next) this.play(next.id)
   }
 

@@ -7,6 +7,7 @@ import { type Clip, encodeWav } from './audio/wav'
 import { BrowserView } from './components/BrowserView'
 import { ClipEditor } from './components/ClipEditor'
 import { DeckBar } from './components/DeckBar'
+import { MusicView } from './components/MusicView'
 import { Header, type View } from './components/Header'
 import { Mixer } from './components/Mixer'
 import { PadEditor } from './components/PadEditor'
@@ -90,26 +91,35 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   useEffect(() => engine.setMicEnabled(settings.micEnabled), [settings.micEnabled])
   useEffect(() => engine.setMonitorVoice(settings.monitorVoice), [settings.monitorVoice])
   useEffect(() => engine.setVoiceFx(resolveParams(settings.voiceFx)), [settings.voiceFx])
-  useEffect(() => engine.deck.setQueue(settings.deck.queue), [settings.deck.queue])
+  const { playlists, playlistId } = settings.deck
+  const playingPlaylist = playlists.find((p) => p.id === playlistId) ?? playlists[0]
+  useEffect(() => engine.deck.setQueue(playingPlaylist.tracks), [playingPlaylist.tracks])
   useEffect(() => engine.deck.setCrossfade(settings.deck.crossfade), [settings.deck.crossfade])
+  useEffect(() => engine.deck.setRepeat(settings.deck.repeat), [settings.deck.repeat])
   useEffect(() => engine.setDucking(settings.deck.ducking), [settings.deck.ducking])
   useEffect(() => engine.setBrowserRoute(settings.browser.route), [settings.browser.route])
   useEffect(() => engine.setBrowserVolume(settings.browser.volume), [settings.browser.volume])
 
-  // Fill in track durations in the background for the queue list.
+  // Fill in track durations in the background for the playlists.
   const probing = useRef(new Set<string>())
   useEffect(() => {
-    for (const track of settings.deck.queue) {
+    for (const track of playlists.flatMap((p) => p.tracks)) {
       if (track.duration !== undefined || probing.current.has(track.id)) continue
       probing.current.add(track.id)
       probeDuration(track.path).then((duration) =>
         update((s) => ({
           ...s,
-          deck: { ...s.deck, queue: s.deck.queue.map((t) => (t.id === track.id ? { ...t, duration: duration ?? 0 } : t)) }
+          deck: {
+            ...s.deck,
+            playlists: s.deck.playlists.map((p) => ({
+              ...p,
+              tracks: p.tracks.map((t) => (t.id === track.id ? { ...t, duration: duration ?? 0 } : t))
+            }))
+          }
         }))
       )
     }
-  }, [settings.deck.queue, update])
+  }, [playlists, update])
   useEffect(() => {
     engine.pitchReady.then(setPitchAvailable)
   }, [])
@@ -196,14 +206,32 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
     showToast(`"${name}" salvo em ${settings.categories.find((c) => c.id === target)?.name ?? 'pads'}`)
   }
 
-  const addMusic = (paths: string[]): void => {
+  /** Adds files to a playlist (the one playing, if none is given). */
+  const addMusic = (paths: string[], target = playlistId): void => {
     if (!paths.length) return
     const tracks: Track[] = paths.map((path) => ({
       id: newId(),
       path,
       name: path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '')
     }))
-    update((s) => ({ ...s, deck: { ...s.deck, queue: [...s.deck.queue, ...tracks] } }))
+    update((s) => ({
+      ...s,
+      deck: {
+        ...s.deck,
+        playlists: s.deck.playlists.map((p) => (p.id === target ? { ...p, tracks: [...p.tracks, ...tracks] } : p))
+      }
+    }))
+  }
+
+  const updateDeck = (change: Partial<Settings['deck']>): void => update((s) => ({ ...s, deck: { ...s.deck, ...change } }))
+
+  const playTrack = (target: string, trackId: string): void => {
+    const playlist = playlists.find((p) => p.id === target)
+    if (!playlist) return
+    // Next/previous follow the playlist the track was started from.
+    engine.deck.setQueue(playlist.tracks)
+    engine.deck.play(trackId)
+    if (target !== playlistId) update((s) => ({ ...s, deck: { ...s.deck, playlistId: target } }))
   }
 
   const deletePad = (pad: Pad): void => {
@@ -280,6 +308,18 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
           />
         </div>
       )}
+      {view === 'music' && (
+        <MusicView
+          deck={settings.deck}
+          onChange={updateDeck}
+          onPlayTrack={playTrack}
+          onAddClick={(target) => window.api.pickMusic().then((paths) => addMusic(paths, target))}
+          onDropFiles={(files, target) =>
+            window.api.addMusic(files.map(window.api.pathForFile)).then((paths) => addMusic(paths, target))
+          }
+          onCalibrate={() => setView('setup')}
+        />
+      )}
       {view === 'setup' && (
         <SetupView
           settings={settings}
@@ -300,9 +340,9 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
 
       <DeckBar
         deck={settings.deck}
-        onChange={(change) => update((s) => ({ ...s, deck: { ...s.deck, ...change } }))}
-        onAddClick={() => window.api.pickMusic().then(addMusic)}
-        onDropFiles={(files) => window.api.addMusic(files.map(window.api.pathForFile)).then(addMusic)}
+        onChange={updateDeck}
+        onDropFiles={(files) => window.api.addMusic(files.map(window.api.pathForFile)).then((paths) => addMusic(paths))}
+        onOpenMusic={() => setView('music')}
         toggleHotkey={settings.hotkeys.deckToggle}
         nextHotkey={settings.hotkeys.deckNext}
       />

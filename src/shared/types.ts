@@ -67,10 +67,20 @@ export interface DuckingSettings {
   threshold: number
 }
 
+export interface Playlist {
+  id: string
+  name: string
+  tracks: Track[]
+}
+
 export interface DeckSettings {
-  queue: Track[]
+  playlists: Playlist[]
+  /** The playlist the deck plays from (next/previous stay inside it). */
+  playlistId: string
   /** Crossfade between tracks, in seconds; 0 = cut. */
   crossfade: number
+  /** Start the playlist over after its last track. */
+  repeat: boolean
   ducking: DuckingSettings
 }
 

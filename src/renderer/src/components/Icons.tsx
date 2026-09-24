@@ -116,6 +116,20 @@ export const MusicIcon = (p: IconProps): React.JSX.Element => (
   </Stroke>
 )
 
+export const RepeatIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M17 2l4 4-4 4" />
+    <path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4" />
+    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+  </Stroke>
+)
+
+export const ShuffleIcon = (p: IconProps): React.JSX.Element => (
+  <Stroke {...p}>
+    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+  </Stroke>
+)
+
 export const BackIcon = (p: IconProps): React.JSX.Element => (
   <Stroke {...p}>
     <path d="M15 18l-6-6 6-6" />

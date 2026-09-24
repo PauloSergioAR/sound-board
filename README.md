@@ -54,9 +54,13 @@ Na primeira vez, o Electron baixa o próprio binário.
 - **Clique** num pad para tocar; **clique direito** para editar nome, atalho global, volume, cor e categoria.
 - **Efeitos de voz:** no painel "Sua voz", escolha um preset (Grave, Fina, Robô, Rádio, Megafone, Caverna, Eco longo) e
   ajuste tom, eco e reverb. Marque "Me ouvir no fone" para ouvir o resultado.
-- **Música:** arraste arquivos para o deck (a barra acima do mixer) ou use **Fila → Adicionar**. Os arquivos tocam do
-  lugar original, sem cópia. O **crossfade** mistura o fim de uma faixa com o começo da próxima, e o **ducking** abaixa
-  a música enquanto você fala. Calibre a sensibilidade em Dispositivos → Ducking da música.
+- **Música:** a aba Música tem **playlists**: crie, renomeie (clique duplo), arraste arquivos para adicionar, arraste
+  faixas para reordenar, embaralhe e ligue o "repetir". Os arquivos tocam do lugar original, sem cópia. A barra acima
+  do mixer é um mini player que aparece em todas as telas. O **crossfade** mistura o fim de uma faixa com o começo da
+  próxima, e o **ducking** abaixa a música enquanto você fala. Calibre a sensibilidade em Dispositivos → Ducking da
+  música.
+- **MyInstants:** na aba Navegador, cada som das listas do MyInstants ganha um botão **"+ Pad"**, que já cria o pad com
+  o nome do som na categoria atual. Na página de um som, o "Baixar MP3" faz o mesmo.
 - **Navegador:** a aba Navegador abre YouTube, MyInstants e qualquer site. O som da página entra no mixer, no canal
   Música (com ducking), no canal Efeitos ou só no seu fone. Ele continua tocando quando você volta para os pads.
   - **Recortar:** o app guarda sempre os últimos 30 s do navegador. Em "Recortar últimos 30 s", arraste sobre a onda
