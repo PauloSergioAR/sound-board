@@ -35,7 +35,10 @@ Na primeira vez, o Electron baixa o próprio binário.
 
 - **Importar sons:** arraste arquivos de áudio para a grade ou use **Importar** (mp3, wav, ogg, flac, m4a…).
 - **Clique** num pad para tocar; **clique direito** para editar nome, atalho global, volume, cor e categoria.
-- **Atalhos padrão:** `F10` muta/desmuta o mic e `F11` para tudo. Ambos podem ser trocados em Dispositivos.
+- **Efeitos de voz:** no painel "Sua voz", escolha um preset (Grave, Fina, Robô, Rádio, Megafone, Caverna, Eco longo) e
+  ajuste tom, eco e reverb. Marque "Me ouvir no fone" para ouvir o resultado.
+- **Atalhos padrão:** `F9` liga/desliga o efeito de voz, `F10` muta/desmuta o mic e `F11` para tudo. Todos podem ser
+  trocados em Dispositivos.
 
 ## Scripts
 

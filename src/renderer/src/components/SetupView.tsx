@@ -184,6 +184,15 @@ export function SetupView({ settings, devices, failedHotkeys, onDevices, onHotke
               onChange={(h) => h && onHotkeys({ toggleMic: h })}
             />
           </div>
+          <div className="hotkey-row">
+            <label htmlFor="hk-fx">Liga/desliga efeito de voz</label>
+            <HotkeyInput
+              id="hk-fx"
+              value={settings.hotkeys.toggleFx}
+              failed={failedHotkeys.includes(settings.hotkeys.toggleFx)}
+              onChange={(h) => h && onHotkeys({ toggleFx: h })}
+            />
+          </div>
           {failedHotkeys.length > 0 && (
             <p className="notice warn">
               <AlertIcon size={16} />

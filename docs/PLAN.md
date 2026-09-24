@@ -56,6 +56,12 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 ```
 
 - O processamento de voz do navegador (eco, ruído, AGC) fica desligado, porque ele corta música e efeitos.
+- Efeitos de voz (`voiceFx.ts`): tom → modulador em anel (robô) → passa-altas/passa-baixas → distorção →
+  seco + eco com realimentação + reverb (resposta ao impulso sintética). Os presets só mexem nos parâmetros e o
+  grafo nunca é religado, então trocar de preset não estala.
+- O tom usa um AudioWorklet próprio (`pitch.worklet.ts`), estilo WSOLA: a cabeça de leitura percorre uma linha de
+  atraso de 40 ms, e cada emenda é alinhada por correlação cruzada, com crossfade de 10 ms. A latência é de cerca de
+  20 ms, sem o "batimento" do método de duas cabeças.
 - Um limitador no master evita estourar do outro lado.
 - Enquanto nenhuma saída foi escolhida, o master vai para `{ type: 'none' }`, para sua voz nunca vazar nas caixas.
 - Os sons ficam copiados em `%APPDATA%/soundboard/sounds`, e as configurações em `%APPDATA%/soundboard/settings.json`.
@@ -66,10 +72,10 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 |---|---|---|
 | 0. Validação | VB-Cable instalado, Discord/Wardogs com CABLE Output como microfone | ✅ driver instalado |
 | 1. MVP | Mic → CABLE, grade de pads, categorias, importar/arrastar sons, editor de pad, dispositivos, monitor, mixer, atalhos globais, parar tudo | ✅ |
-| 2. Efeitos de voz | Presets (grave, fina, robô, rádio, megafone, caverna, eco), tom/eco/reverb em tempo real, "segurar para robô" | |
+| 2. Efeitos de voz | Presets (grave, fina, robô, rádio, megafone, caverna, eco longo), tom/eco/reverb em tempo real, F9 liga/desliga | ✅ |
 | 3. Deck de música | Fila de arquivos locais, play/pause/próxima, crossfade, **ducking** (música abaixa quando você fala) | |
 | 4. Navegador | Webview com YouTube/MyInstants roteado para o canal Música, recortar trecho → pad, adicionar à fila | |
-| 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), perfis, modo mini sempre no topo, bandeja, instalador | |
+| 5. Extras | Capturar áudio do Chrome/Spotify externo (addon nativo), "segurar tecla" para efeitos (hook nativo), perfis, modo mini sempre no topo, bandeja, instalador | |
 
 ## Cuidados práticos
 
@@ -82,4 +88,6 @@ voice ─► monitorVoice (liga/desliga) ─► monitor
 - **Latência do cabo:** o VB-Cable vem com um buffer grande (~150 ms). Dá para reduzir em
   `VBCABLE_ControlPanel.exe` → *Options* → *Max Latency*.
 - **Tecla Pause:** o Electron não consegue registrar Pause como atalho global, por isso "Parar tudo" usa F11.
+- **Segurar tecla:** o `globalShortcut` do Electron só avisa quando a tecla é pressionada, nunca quando é solta.
+  Por isso o F9 alterna o efeito; "segurar para falar com efeito" precisa do hook nativo da fase 5.
 - **Atalhos globais consomem a tecla:** com F1 ligado a um pad, o jogo não recebe o F1.

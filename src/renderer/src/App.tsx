@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BusId, HotkeyBinding, ImportedSound, Pad, Settings } from '../../shared/types'
 import { engine } from './audio'
+import { resolveParams } from './audio/presets'
 import { Header, type View } from './components/Header'
 import { Mixer } from './components/Mixer'
 import { PadEditor } from './components/PadEditor'
@@ -27,6 +28,7 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   const [editing, setEditing] = useState<Pad | null>(null)
   const [micError, setMicError] = useState<string | null>(null)
   const [failedHotkeys, setFailedHotkeys] = useState<string[]>([])
+  const [pitchAvailable, setPitchAvailable] = useState(true)
   const { devices: dev, mixer, pads } = settings
 
   // ── Audio routing ──────────────────────────────────────
@@ -74,6 +76,10 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
   }, [mixer])
   useEffect(() => engine.setMicEnabled(settings.micEnabled), [settings.micEnabled])
   useEffect(() => engine.setMonitorVoice(settings.monitorVoice), [settings.monitorVoice])
+  useEffect(() => engine.setVoiceFx(resolveParams(settings.voiceFx)), [settings.voiceFx])
+  useEffect(() => {
+    engine.pitchReady.then(setPitchAvailable)
+  }, [])
   useEffect(() => pads.forEach((p) => engine.preload(p.file)), [pads])
 
   // ── Hotkeys ────────────────────────────────────────────
@@ -82,6 +88,7 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
     () => [
       { accelerator: settings.hotkeys.stopAll, action: 'stopAll' },
       { accelerator: settings.hotkeys.toggleMic, action: 'toggleMic' },
+      { accelerator: settings.hotkeys.toggleFx, action: 'toggleFx' },
       ...pads.filter((p) => p.hotkey).map((p) => ({ accelerator: p.hotkey!, action: `pad:${p.id}` }))
     ],
     [settings.hotkeys, pads]
@@ -100,6 +107,7 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
         const s = latest.current
         if (action === 'stopAll') engine.stopAll()
         else if (action === 'toggleMic') update((x) => ({ ...x, micEnabled: !x.micEnabled }))
+        else if (action === 'toggleFx') update((x) => ({ ...x, voiceFx: { ...x.voiceFx, enabled: !x.voiceFx.enabled } }))
         else if (action.startsWith('pad:')) {
           const pad = s.pads.find((p) => `pad:${p.id}` === action)
           if (pad) engine.play(pad, s.padMode)
@@ -189,7 +197,11 @@ function Loaded({ settings, update }: { settings: Settings; update: ReturnType<t
             onToggleMic={() => update((s) => ({ ...s, micEnabled: !s.micEnabled }))}
             monitorVoice={settings.monitorVoice}
             onMonitorVoice={(monitorVoice) => update((s) => ({ ...s, monitorVoice }))}
+            voiceFx={settings.voiceFx}
+            onVoiceFx={(change) => update((s) => ({ ...s, voiceFx: { ...s.voiceFx, ...change } }))}
+            pitchAvailable={pitchAvailable}
             toggleMicHotkey={settings.hotkeys.toggleMic}
+            toggleFxHotkey={settings.hotkeys.toggleFx}
             micError={micError}
             inputIsCable={!!input && isCableOutput(input)}
           />

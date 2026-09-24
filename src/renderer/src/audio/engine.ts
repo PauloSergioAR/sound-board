@@ -1,4 +1,6 @@
 import type { BusId, Pad, PadMode } from '../../../shared/types'
+import type { VoiceFxParams } from './presets'
+import { VoiceFx } from './voiceFx'
 
 /**
  * The whole audio graph.
@@ -28,8 +30,15 @@ export class AudioEngine {
   private readonly monitorCtx = new AudioContext({ latencyHint: 'interactive' }) as SinkableContext
 
   private readonly micGate = this.ctx.createGain()
-  /** Voice effects (phase 2) are inserted between these two nodes. */
-  private readonly voiceFxIn = this.ctx.createGain()
+  private readonly voiceFx = new VoiceFx(this.ctx)
+  /** Resolves to false if the pitch shifter could not load (the other effects still work). */
+  readonly pitchReady: Promise<boolean> = this.voiceFx.init().then(
+    () => true,
+    (err) => {
+      console.error('Pitch shifter failed to load', err)
+      return false
+    }
+  )
   private readonly buses: Record<BusId, GainNode> = {
     voice: this.ctx.createGain(),
     sfx: this.ctx.createGain(),
@@ -49,7 +58,8 @@ export class AudioEngine {
   constructor(private readonly readFile: (file: string) => Promise<Uint8Array>) {
     const { buses } = this
 
-    this.micGate.connect(this.voiceFxIn).connect(buses.voice)
+    this.micGate.connect(this.voiceFx.input)
+    this.voiceFx.output.connect(buses.voice)
     buses.voice.connect(buses.master)
     buses.voice.connect(this.monitorVoice).connect(buses.monitor)
     buses.sfx.connect(buses.master)
@@ -119,6 +129,10 @@ export class AudioEngine {
 
   setMicEnabled(enabled: boolean): void {
     this.ramp(this.micGate.gain, enabled ? 1 : 0)
+  }
+
+  setVoiceFx(params: VoiceFxParams): void {
+    this.voiceFx.apply(params)
   }
 
   setMonitorVoice(enabled: boolean): void {

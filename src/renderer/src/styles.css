@@ -687,6 +687,45 @@ h2 {
   color: var(--muted);
 }
 
+.fx-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+.fx-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.fx-presets button {
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--panel-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+.fx-presets button:hover {
+  background: #2d2c35;
+}
+.fx-presets button[aria-checked='true'] {
+  background: var(--orange);
+  color: var(--orange-ink);
+}
+.fx-knobs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.fx-knobs:disabled {
+  opacity: 0.45;
+}
+
 /* ── Mixer ───────────────────────────────────────────── */
 
 .mixer {

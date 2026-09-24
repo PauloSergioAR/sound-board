@@ -37,6 +37,19 @@ export interface DeviceSettings {
   monitorId: string
 }
 
+export type VoicePresetId = 'grave' | 'fina' | 'robo' | 'radio' | 'megafone' | 'caverna' | 'eco'
+
+export interface VoiceFxSettings {
+  enabled: boolean
+  preset: VoicePresetId
+  /** Semitones, −12…12. Starts at the preset's value and can be tweaked. */
+  pitch: number
+  /** Echo level, 0–1. */
+  echo: number
+  /** Reverb level, 0–1. */
+  reverb: number
+}
+
 export interface Settings {
   version: 1
   categories: Category[]
@@ -46,10 +59,12 @@ export interface Settings {
   micEnabled: boolean
   /** Also send your own voice to the monitor (headphones). */
   monitorVoice: boolean
+  voiceFx: VoiceFxSettings
   padMode: PadMode
   hotkeys: {
     stopAll: string
     toggleMic: string
+    toggleFx: string
   }
 }
 

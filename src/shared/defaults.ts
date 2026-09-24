@@ -20,9 +20,10 @@ export function defaultSettings(): Settings {
     },
     micEnabled: true,
     monitorVoice: false,
+    voiceFx: { enabled: false, preset: 'grave', pitch: -5, echo: 0, reverb: 0.1 },
     padMode: 'overlap',
     // Electron cannot bind the Pause key, so "stop everything" defaults to F11.
-    hotkeys: { stopAll: 'F11', toggleMic: 'F10' }
+    hotkeys: { stopAll: 'F11', toggleMic: 'F10', toggleFx: 'F9' }
   }
 }
 
@@ -35,6 +36,7 @@ export function withDefaults(partial: Partial<Settings> | null): Settings {
     ...partial,
     devices: { ...base.devices, ...partial.devices },
     mixer: { ...base.mixer, ...partial.mixer },
+    voiceFx: { ...base.voiceFx, ...partial.voiceFx },
     hotkeys: { ...base.hotkeys, ...partial.hotkeys },
     categories: partial.categories?.length ? partial.categories : base.categories,
     pads: partial.pads ?? []
